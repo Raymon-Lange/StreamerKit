@@ -1,0 +1,11 @@
+# Credentials - never commit
+.env
+espn_cookies.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Scratch files
+1
