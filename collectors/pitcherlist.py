@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import requests
 from bs4 import BeautifulSoup
@@ -14,6 +17,11 @@ TOP_400_DYNASTY_URL = "https://pitcherlist.com/2026-top-400-dynasty-rankings/"
 SP_STREAMERS_CATEGORY_URL = "https://pitcherlist.com/category/fantasy/starting-pitchers/sp-streamers/"
 
 TIER_ORDER = ["Auto-Start", "Probably Start", "Questionable Start", "Do Not Start"]
+
+CACHE_TTL = timedelta(days=15)
+CACHE_DIR = Path(__file__).resolve().parents[1] / ".cache"
+TOP_HITTERS_CACHE_PATH = CACHE_DIR / "pitcherlist_top_hitters.json"
+DYNASTY_HITTERS_CACHE_PATH = CACHE_DIR / "pitcherlist_dynasty_hitters.json"
 
 
 @dataclass(slots=True)
@@ -94,76 +102,178 @@ def _parse_ranked_table(table, limit: int, name_headers: tuple[str, ...], meta: 
     return ranked
 
 
-def scrape_top_hitters(url: str = TOP_300_HITTERS_URL, limit: int = 300) -> dict[str, RankingEntry]:
-    soup = fetch_html(url)
-    meta = extract_article_meta(soup, url)
+def _is_cache_fresh(path: Path) -> bool:
+    if not path.exists():
+        return False
+    modified_at = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc)
+    return datetime.now(timezone.utc) - modified_at <= CACHE_TTL
 
-    for table in soup.find_all("table"):
-        headers = [th.get_text(" ", strip=True).lower() for th in table.find_all("th")]
-        if "rank" in headers and "hitter" in headers:
-            ranked = _parse_ranked_table(table, limit, ("hitter",), meta, source="pitcherlist_top_hitters")
-            if ranked:
-                return ranked
 
+def _load_cache(path: Path) -> dict | None:
+    if not path.exists():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
+def _serialize_rankings(ranked: dict[str, RankingEntry]) -> list[dict]:
+    rows = []
+    for key, entry in ranked.items():
+        rows.append(
+            {
+                "normalized_name": key,
+                "source": entry.source,
+                "rank": entry.rank,
+                "tier": entry.tier,
+                "article_url": entry.article_url,
+                "article_title": entry.article_title,
+                "article_date": entry.article_date,
+                "position": entry.position,
+                "raw": entry.raw,
+            }
+        )
+    return rows
+
+
+def _deserialize_rankings(rows: list[dict]) -> dict[str, RankingEntry]:
     ranked: dict[str, RankingEntry] = {}
-    article = soup.find("article") or soup.find("main") or soup
-    for raw in article.get_text("\n", strip=True).splitlines():
-        line = " ".join(raw.split())
-        match = re.match(r"^(\d{1,3})\.\s+(.+?)\s+\(([A-Z0-9, /]+)\)$", line)
-        if not match:
+    for row in rows:
+        key = row.get("normalized_name")
+        if not key:
             continue
-        rank = int(match.group(1))
-        if rank > limit:
-            continue
-        name = clean_player_name(match.group(2))
-        ranked.setdefault(
-            normalize_name(name),
-            RankingEntry(
-                source="pitcherlist_top_hitters",
-                rank=rank,
-                article_url=meta.url,
-                article_title=meta.title,
-                article_date=meta.date_text,
-                raw=line,
-            ),
+        ranked[key] = RankingEntry(
+            source=row.get("source", ""),
+            rank=row.get("rank"),
+            tier=row.get("tier"),
+            article_url=row.get("article_url"),
+            article_title=row.get("article_title"),
+            article_date=row.get("article_date"),
+            position=row.get("position"),
+            raw=row.get("raw"),
         )
     return ranked
 
 
-def scrape_dynasty_hitters(url: str = TOP_400_DYNASTY_URL, limit: int = 400) -> dict[str, RankingEntry]:
-    soup = fetch_html(url)
-    meta = extract_article_meta(soup, url)
+def _save_cache(path: Path, url: str, ranked: dict[str, RankingEntry]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "fetched_at": datetime.now(timezone.utc).isoformat(),
+        "url": url,
+        "rows": _serialize_rankings(ranked),
+    }
+    path.write_text(json.dumps(payload, ensure_ascii=True, indent=2), encoding="utf-8")
 
-    for table in soup.find_all("table"):
-        headers = [th.get_text(" ", strip=True).lower() for th in table.find_all("th")]
-        if "rank" in headers and "player" in headers:
-            ranked = _parse_ranked_table(table, limit, ("player",), meta, source="pitcherlist_dynasty")
-            if ranked:
-                return ranked
 
-    ranked: dict[str, RankingEntry] = {}
-    article = soup.find("article") or soup.find("main") or soup
-    for raw in article.get_text("\n", strip=True).splitlines():
-        line = " ".join(raw.split())
-        match = re.match(r"^(\d{1,3})\s+(.+?)\s+[A-Z]{2,3}\s+[A-Z0-9/*,]+(?:/[A-Z0-9/*,]+)*$", line)
-        if not match:
-            continue
-        rank = int(match.group(1))
-        if rank > limit:
-            continue
-        name = clean_player_name(match.group(2))
-        ranked.setdefault(
-            normalize_name(name),
-            RankingEntry(
-                source="pitcherlist_dynasty",
-                rank=rank,
-                article_url=meta.url,
-                article_title=meta.title,
-                article_date=meta.date_text,
-                raw=line,
-            ),
-        )
-    return ranked
+def scrape_top_hitters(
+    url: str = TOP_300_HITTERS_URL,
+    limit: int = 300,
+    force_refresh: bool = False,
+) -> dict[str, RankingEntry]:
+    cached = _load_cache(TOP_HITTERS_CACHE_PATH)
+    if cached and not force_refresh and _is_cache_fresh(TOP_HITTERS_CACHE_PATH):
+        return _deserialize_rankings(cached.get("rows", []))
+
+    try:
+        soup = fetch_html(url)
+        meta = extract_article_meta(soup, url)
+
+        for table in soup.find_all("table"):
+            headers = [th.get_text(" ", strip=True).lower() for th in table.find_all("th")]
+            if "rank" in headers and "hitter" in headers:
+                ranked = _parse_ranked_table(table, limit, ("hitter",), meta, source="pitcherlist_top_hitters")
+                if ranked:
+                    _save_cache(TOP_HITTERS_CACHE_PATH, url, ranked)
+                    return ranked
+
+        ranked: dict[str, RankingEntry] = {}
+        article = soup.find("article") or soup.find("main") or soup
+        for raw in article.get_text("\n", strip=True).splitlines():
+            line = " ".join(raw.split())
+            match = re.match(r"^(\d{1,3})\.\s+(.+?)\s+\(([A-Z0-9, /]+)\)$", line)
+            if not match:
+                continue
+            rank = int(match.group(1))
+            if rank > limit:
+                continue
+            name = clean_player_name(match.group(2))
+            ranked.setdefault(
+                normalize_name(name),
+                RankingEntry(
+                    source="pitcherlist_top_hitters",
+                    rank=rank,
+                    article_url=meta.url,
+                    article_title=meta.title,
+                    article_date=meta.date_text,
+                    raw=line,
+                ),
+            )
+
+        if not ranked:
+            raise ValueError("No Top 300 hitters were parsed from Pitcher List.")
+
+        _save_cache(TOP_HITTERS_CACHE_PATH, url, ranked)
+        return ranked
+    except Exception:
+        if cached:
+            return _deserialize_rankings(cached.get("rows", []))
+        raise
+
+
+def scrape_dynasty_hitters(
+    url: str = TOP_400_DYNASTY_URL,
+    limit: int = 400,
+    force_refresh: bool = False,
+) -> dict[str, RankingEntry]:
+    cached = _load_cache(DYNASTY_HITTERS_CACHE_PATH)
+    if cached and not force_refresh and _is_cache_fresh(DYNASTY_HITTERS_CACHE_PATH):
+        return _deserialize_rankings(cached.get("rows", []))
+
+    try:
+        soup = fetch_html(url)
+        meta = extract_article_meta(soup, url)
+
+        for table in soup.find_all("table"):
+            headers = [th.get_text(" ", strip=True).lower() for th in table.find_all("th")]
+            if "rank" in headers and "player" in headers:
+                ranked = _parse_ranked_table(table, limit, ("player",), meta, source="pitcherlist_dynasty")
+                if ranked:
+                    _save_cache(DYNASTY_HITTERS_CACHE_PATH, url, ranked)
+                    return ranked
+
+        ranked: dict[str, RankingEntry] = {}
+        article = soup.find("article") or soup.find("main") or soup
+        for raw in article.get_text("\n", strip=True).splitlines():
+            line = " ".join(raw.split())
+            match = re.match(r"^(\d{1,3})\s+(.+?)\s+[A-Z]{2,3}\s+[A-Z0-9/*,]+(?:/[A-Z0-9/*,]+)*$", line)
+            if not match:
+                continue
+            rank = int(match.group(1))
+            if rank > limit:
+                continue
+            name = clean_player_name(match.group(2))
+            ranked.setdefault(
+                normalize_name(name),
+                RankingEntry(
+                    source="pitcherlist_dynasty",
+                    rank=rank,
+                    article_url=meta.url,
+                    article_title=meta.title,
+                    article_date=meta.date_text,
+                    raw=line,
+                ),
+            )
+
+        if not ranked:
+            raise ValueError("No Top 400 dynasty hitters were parsed from Pitcher List.")
+
+        _save_cache(DYNASTY_HITTERS_CACHE_PATH, url, ranked)
+        return ranked
+    except Exception:
+        if cached:
+            return _deserialize_rankings(cached.get("rows", []))
+        raise
 
 
 def get_latest_streamer_url() -> str:

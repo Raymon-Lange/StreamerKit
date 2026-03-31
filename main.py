@@ -31,7 +31,7 @@ def ask_bool(prompt: str, default: bool = False) -> bool:
 
 MENU = """
 ┌──────────────────────────────┐
-│   Fantasy Baseball Tools     │
+│        Baseball Tools        │
 ├──────────────────────────────┤
 │  1) Streaming Pitchers       │
 │  2) Free Agent Hitters       │
@@ -57,8 +57,7 @@ def _run_team_hitters() -> None:
     from scripts.run_team_hitter_eval import run
     team_id = ask_int("Team ID (leave blank to use default from config)", default=None)
     trend = ask_int("Trend games to look back", default=10)
-    all_hitters = ask_bool("Show all hitters (not just rostered)?", default=False)
-    run(types.SimpleNamespace(team_id=team_id, trend_games=trend, all_hitters=all_hitters))
+    run(types.SimpleNamespace(team_id=team_id, trend_games=trend))
 
 
 HANDLERS: dict[str, tuple[str, object]] = {

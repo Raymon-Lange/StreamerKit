@@ -1,54 +1,45 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This repository is a small Python package for fantasy baseball tooling.
 
-## Running the tools
+## Current entry points
+
+Use the menu wrapper:
 
 ```bash
-# Activate the virtual environment first
-source .venv/bin/activate
-
-# Load credentials, then run the main tool
-source espn_cookies.env && python espn_free_agent.py
-
-# Override league or year
-python espn_free_agent.py --league-id <id> --year 2025
-
-# Look up specific pitchers directly
-python sp_recommender.py "Aaron Nola" "Shane Baz"
-python sp_recommender.py "Aaron Nola" --url https://pitcherlist.com/...
+python main.py
 ```
 
-## Credentials
+Or run the scripts directly:
 
-The scripts require two ESPN session cookies as environment variables:
+```bash
+python scripts/run_team_hitter_eval.py --team-id 1 --trend-games 10
+python scripts/run_free_agent_hitters.py --top 10 --size 75 --trend-games 15
+python scripts/run_sp_streamers.py
+```
 
-| Variable   | Source                                             |
-|------------|----------------------------------------------------|
-| `ESPN_S2`  | Browser DevTools → Application → Cookies → espn.com |
-| `ESPN_SWID`| Same location; format: `{UUID}`                    |
+## Environment
 
-`LEAGUE_ID` (hardcoded in `espn_free_agent.py:51`) identifies the ESPN fantasy league. It can be overridden at runtime with `--league-id`.
+The scripts expect these environment variables:
+
+- `LEAGUE_ID`
+- `TEAM_ID`
+- `ESPN_S2`
+- `ESPN_SWID`
+
+They are loaded through `python-dotenv` from `.env`.
 
 ## Architecture
 
-Two scripts, where `espn_free_agent.py` is the entry point and imports from `sp_recommender.py`.
+- `collectors/` handle external data access and parsing.
+- `engines/` contain recommendation logic only.
+- `models/player.py` contains the shared dataclasses.
+- `utils/names.py` is the single source of truth for player-name normalization.
+- `scripts/` orchestrate collectors plus engines and print results.
 
-**Data flow in `espn_free_agent.py`:**
-1. Fetches today's MLB probable starters from ESPN's public scoreboard API
-2. Connects to the private ESPN fantasy league via `espn-api` (requires cookies)
-3. Fetches free agent SPs from the league
-4. Cross-references with PitcherList tiers (delegated to `sp_recommender`)
-5. Prints player cards sorted by % owned — starters today first, rest as a top-5 summary
+## Notes for future changes
 
-**`sp_recommender.py` responsibilities:**
-- `get_latest_pl_url()` — scrapes PitcherList category page to find the current week's SP streamer post
-- `scrape_pl_tiers(url)` — parses that post into a dict of `normalized_name → (display_name, tier)`
-- `get_pitcher_stats(name)` — looks up a pitcher in MLB StatsAPI and returns season record, last-10 record, and last-2 start box scores
-- Can also be run standalone to look up specific pitchers by name
-
-**External dependencies:**
-- `espn-api` — ESPN fantasy league access (private, requires cookies)
-- `MLB-StatsAPI` (`statsapi`) — player lookup, season stats, game logs
-- `requests` + `beautifulsoup4` — PitcherList web scraping
-- `pitcherlist.com` — streamer tier rankings (scraped, no API key needed)
+- Keep collectors free of recommendation decisions.
+- Keep engines free of HTTP requests and ESPN access.
+- Prefer `PlayerRecord`, `RankingEntry`, `TrendSummary`, and `Recommendation` over ad hoc dicts.
+- Reuse `normalize_name()` from `utils/names.py` for all joins across sources.
