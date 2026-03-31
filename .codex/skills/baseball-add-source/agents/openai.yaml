@@ -1,0 +1,4 @@
+interface:
+  display_name: "Baseball Add Source"
+  short_description: "Add new ranking/stat sources"
+  default_prompt: "Use this skill to add a new data source collector with 15-day cache logic and integrate it into this repo's scripts."
