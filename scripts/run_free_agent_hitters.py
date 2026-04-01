@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date
 
 from collectors.espn import build_context, get_free_agent_hitters
@@ -19,6 +20,7 @@ def run(args) -> None:
     top = getattr(args, "top", 10) or 10
     size = getattr(args, "size", 75) or 75
     trend_games = getattr(args, "trend_games", 15) or 15
+    trend_workers = max(1, getattr(args, "trend_workers", 12) or 12)
 
     context = build_context(config)
 
@@ -28,14 +30,20 @@ def run(args) -> None:
     free_agents = get_free_agent_hitters(context, size_per_pos=size)
 
     rows = []
-    for player in free_agents:
+
+    def _build_row(player):
         redraft_rank = redraft.get(player.normalized_name).rank if player.normalized_name in redraft else None
         pl_dynasty_rank = pl_dynasty.get(player.normalized_name).rank if player.normalized_name in pl_dynasty else None
         espn_dynasty_rank = espn_dynasty.get(player.normalized_name).rank if player.normalized_name in espn_dynasty else None
         dynasty_rank = min((rank for rank in (pl_dynasty_rank, espn_dynasty_rank) if rank is not None), default=None)
         trend = summarize_recent_hitting(player.name, trend_games=trend_games)
         rec = evaluate_free_agent_hitter(redraft_rank, dynasty_rank, trend.label)
-        rows.append((player, redraft_rank, pl_dynasty_rank, espn_dynasty_rank, dynasty_rank, trend, rec))
+        return (player, redraft_rank, pl_dynasty_rank, espn_dynasty_rank, dynasty_rank, trend, rec)
+
+    with ThreadPoolExecutor(max_workers=trend_workers) as executor:
+        futures = [executor.submit(_build_row, player) for player in free_agents]
+        for future in as_completed(futures):
+            rows.append(future.result())
 
     rows.sort(key=lambda row: (-row[6].score, (row[1] or 9999), (row[4] or 9999), -(row[0].percent_owned or 0.0)))
     rows = rows[:top]
@@ -70,6 +78,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--top", type=int, default=10)
     parser.add_argument("--size", type=int, default=75)
     parser.add_argument("--trend-games", type=int, default=15)
+    parser.add_argument("--trend-workers", type=int, default=12)
     return parser.parse_args()
 
 

@@ -52,6 +52,32 @@ All cross-source player joins should use `utils/names.py`.
 3. Scrapes the latest Pitcher List SP Streamers article.
 4. Maps streamer tiers to pickup/skip recommendations.
 
+### Recent drops waiver review
+
+`scripts/run_recent_drops_waiver_review.py`:
+
+1. Pulls ESPN recent league activity and filters to dropped players in a lookback window (default 2 days).
+2. Keeps only dropped players that are currently available as free agents.
+3. Evaluates hitter drops with redraft/dynasty/trend signals and pitcher drops with streamer-tier signal.
+4. Filters out non-actionable results (`PASS`, `SKIP`, and pitcher `Not Ranked`) and prints claim-focused targets.
+
+### SP streamers performance baseline (no cache)
+
+Baseline profile captured on March 31, 2026 with:
+
+```bash
+python3 -m cProfile -s cumtime scripts/run_sp_streamers.py
+```
+
+Result was ~27.2s total runtime (no explicit caching in this script path). Main hotspots:
+
+1. `collectors.espn.build_context` / ESPN league+roster load: ~13.5s
+2. HTTP stack (`requests`/`urllib3` network I/O): ~8.6s across 35 calls
+3. `collectors.mlb_stats.get_pitcher_stats` in per-pitcher loop: ~6.2s total
+4. `collectors.espn.get_free_agent_pitchers`: ~3.8s
+
+Interpretation: runtime is mostly external API/network and ESPN parsing overhead, not local computation.
+
 ## Ranking caches
 
 Ranking collectors cache data for 15 days at:
@@ -86,4 +112,5 @@ python main.py
 python scripts/run_team_hitter_eval.py --team-id 1 --trend-games 10
 python scripts/run_free_agent_hitters.py --top 10 --size 75 --trend-games 15
 python scripts/run_sp_streamers.py
+python scripts/run_recent_drops_waiver_review.py --days 2 --top 25
 ```

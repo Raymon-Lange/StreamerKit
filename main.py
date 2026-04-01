@@ -27,6 +27,14 @@ def ask_bool(prompt: str, default: bool = False) -> bool:
     return raw in {"y", "yes"}
 
 
+def ask_text(prompt: str, default: str | None = None) -> str | None:
+    suffix = f" [{default}]" if default else ""
+    raw = input(f"  {prompt}{suffix}: ").strip()
+    if not raw:
+        return default
+    return raw
+
+
 # ── menu ──────────────────────────────────────────────────────────────────────
 
 MENU = """
@@ -42,7 +50,8 @@ MENU = """
 
 def _run_streaming_pitchers() -> None:
     from scripts.run_sp_streamers import run
-    run(types.SimpleNamespace())
+    pitcher = ask_text("Optional pitcher name (leave blank for full list)", default=None)
+    run(types.SimpleNamespace(pitcher=pitcher))
 
 
 def _run_free_agent_hitters() -> None:
