@@ -6,6 +6,15 @@ espn_cookies.env
 __pycache__/
 *.pyc
 .venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
 
-# Scratch files
-1
+# Runtime/cache
+.cache/
+*.log
+
+# OS/editor
+.DS_Store
+.vscode/

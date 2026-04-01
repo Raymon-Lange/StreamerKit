@@ -105,6 +105,54 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 
+## API server
+
+FastAPI app entrypoint: `app/main.py`
+
+Run locally:
+
+```bash
+uvicorn app.main:app --reload
+```
+
+OpenAPI docs:
+
+- `/docs`
+- `/redoc`
+- `/openapi.json`
+
+See `docs/API.md` for endpoint and parameter details.
+
+### Docker dev workflow
+
+Files:
+
+- `Dockerfile`
+- `docker-compose.yml`
+- `tools/dev_up.sh`
+- `tools/dev_down.sh`
+- `tools/dev_logs.sh`
+
+Commands:
+
+```bash
+tools/dev_up.sh
+tools/dev_logs.sh
+tools/dev_down.sh
+```
+
+## MCP connector
+
+MCP server entrypoint: `mcp/server.py`
+
+Run:
+
+```bash
+python -m mcp.server
+```
+
+See `docs/MCP.md` for setup and tool details.
+
 ## Run
 
 ```bash
