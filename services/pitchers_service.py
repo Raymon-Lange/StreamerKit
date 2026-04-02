@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 from difflib import get_close_matches
 
-from collectors.espn import build_context, get_free_agent_pitchers
+from collectors.espn import build_context, get_all_roster_pitchers, get_free_agent_pitchers
 from collectors.mlb_stats import get_pitcher_stats, get_todays_probable_starters
 from collectors.pitcherlist import scrape_sp_streamer_tiers
 from engines.pitcher_engine import streamer_recommendation
@@ -11,15 +11,28 @@ from utils.config import AppConfig
 from utils.names import normalize_name
 
 
-def _find_pitcher_match(query: str, starters_today: list, streamer_ranks: dict) -> tuple[str | None, object | None, list[str]]:
+def _find_pitcher_match(
+    query: str,
+    starters_today: list,
+    streamer_ranks: dict,
+    fallback_players: list | None = None,
+) -> tuple[str | None, object | None, list[str]]:
     query_key = normalize_name(query)
     starters_by_key = {normalize_name(player.name): player for player in starters_today}
-    if query_key in starters_by_key or query_key in streamer_ranks:
+    fallback_by_key = {normalize_name(player.name): player for player in (fallback_players or [])}
+
+    if query_key in starters_by_key:
+        return query_key, starters_by_key.get(query_key), []
+    if query_key in fallback_by_key:
+        return query_key, fallback_by_key.get(query_key), []
+    if query_key in streamer_ranks:
         return query_key, starters_by_key.get(query_key), []
 
     all_names = {}
     for starter in starters_today:
         all_names.setdefault(normalize_name(starter.name), starter.name)
+    for player in fallback_players or []:
+        all_names.setdefault(normalize_name(player.name), player.name)
     for key in streamer_ranks:
         all_names.setdefault(key, key.title())
     matches = get_close_matches(query_key, all_names.keys(), n=3, cutoff=0.72)
@@ -65,8 +78,13 @@ def get_streaming_pitcher_review(
     streamer_positions = {name: idx for idx, name in enumerate(streamer_ranks.keys(), start=1)}
 
     free_agents = get_free_agent_pitchers(context, size=200, position="SP")
+    roster_pitchers = get_all_roster_pitchers(context)
     starters_today = [player for player in free_agents if not probable_starters or player.name in probable_starters]
     starters_today.sort(key=lambda player: -(player.percent_owned or 0.0))
+
+    all_pitchers_by_key = {player.normalized_name: player for player in roster_pitchers}
+    for player in free_agents:
+        all_pitchers_by_key[player.normalized_name] = player
 
     payload = {
         "generated_on": date.today().isoformat(),
@@ -75,7 +93,12 @@ def get_streaming_pitcher_review(
     }
 
     if pitcher:
-        matched_key, matched_player, suggestions = _find_pitcher_match(pitcher, starters_today, streamer_ranks)
+        matched_key, matched_player, suggestions = _find_pitcher_match(
+            pitcher,
+            starters_today,
+            streamer_ranks,
+            fallback_players=list(all_pitchers_by_key.values()),
+        )
         if not matched_key:
             payload["query"] = pitcher
             payload["found"] = False
@@ -88,6 +111,8 @@ def get_streaming_pitcher_review(
                 if player_row.normalized_name == matched_key:
                     row_player = player_row
                     break
+        if row_player is None:
+            row_player = all_pitchers_by_key.get(matched_key)
         if row_player is None:
             return {
                 **payload,
@@ -108,4 +133,3 @@ def get_streaming_pitcher_review(
     payload["rows"] = rows
     payload["count"] = len(rows)
     return payload
-

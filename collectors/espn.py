@@ -137,3 +137,23 @@ def get_free_agent_pitchers(context: EspnContext, size: int = 200, position: str
     except Exception as exc:
         sys.exit(f"[error] Could not fetch free agents: {exc}")
     return [player_to_record(player, source="espn_free_agent") for player in batch if is_pitcher(player)]
+
+
+def get_all_roster_pitchers(context: EspnContext) -> list[PlayerRecord]:
+    deduped: dict[str | int, object] = {}
+
+    for team in context.league.teams:
+        for player in (getattr(team, "roster", []) or []):
+            if not is_pitcher(player):
+                continue
+            key = getattr(player, "playerId", None) or normalize_name(player.name)
+            current = deduped.get(key)
+            if current is None:
+                deduped[key] = player
+                continue
+            current_owned = getattr(current, "percent_owned", 0.0) or 0.0
+            new_owned = getattr(player, "percent_owned", 0.0) or 0.0
+            if new_owned > current_owned:
+                deduped[key] = player
+
+    return [player_to_record(player, source="espn_roster") for player in deduped.values()]
