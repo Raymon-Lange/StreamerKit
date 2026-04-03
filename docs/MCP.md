@@ -15,7 +15,7 @@ This project includes an MCP server that proxies to the FastAPI service.
 ## Run MCP Server
 
 ```bash
-python -m mcp.server
+python -m streamer_mcp.server
 ```
 
 ## Tools Exposed

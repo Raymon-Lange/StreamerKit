@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from mcp.tools.hitter_tools import free_agent_hitters
-from mcp.tools.pitcher_tools import streamer_review
-from mcp.tools.waiver_tools import recent_drops_waiver_review
+from streamer_mcp.tools.hitter_tools import free_agent_hitters
+from streamer_mcp.tools.pitcher_tools import streamer_review
+from streamer_mcp.tools.waiver_tools import recent_drops_waiver_review
 
 try:
     from fastmcp import FastMCP
@@ -58,11 +58,13 @@ def get_streaming_pitchers(
     pitcher: str | None = None,
     league_id: int | None = None,
     year: int | None = None,
+    tomorrow: bool = False,
 ) -> dict:
     return streamer_review(
         pitcher=pitcher,
         league_id=league_id,
         year=year,
+        tomorrow=tomorrow,
     )
 
 

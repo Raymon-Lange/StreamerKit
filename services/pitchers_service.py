@@ -67,13 +67,14 @@ def get_streaming_pitcher_review(
     league_id: int | None = None,
     year: int | None = None,
     pitcher: str | None = None,
+    for_date: date | None = None,
 ) -> dict:
     config = AppConfig(
         league_id=league_id or AppConfig().league_id,
         year=year or AppConfig().year,
     )
     context = build_context(config)
-    probable_starters = get_todays_probable_starters()
+    probable_starters = get_todays_probable_starters(for_date=for_date)
     streamer_url, streamer_ranks = scrape_sp_streamer_tiers()
     streamer_positions = {name: idx for idx, name in enumerate(streamer_ranks.keys(), start=1)}
 
@@ -87,7 +88,7 @@ def get_streaming_pitcher_review(
         all_pitchers_by_key[player.normalized_name] = player
 
     payload = {
-        "generated_on": date.today().isoformat(),
+        "generated_on": (for_date or date.today()).isoformat(),
         "league": context.league.settings.name,
         "source_url": streamer_url,
     }

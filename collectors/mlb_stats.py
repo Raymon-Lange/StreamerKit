@@ -161,8 +161,8 @@ def get_pitcher_stats(name: str):
     return season_record, last_ten_record, last_two
 
 
-def get_todays_probable_starters() -> set[str]:
-    today = date.today().strftime("%Y%m%d")
+def get_todays_probable_starters(for_date: date | None = None) -> set[str]:
+    today = (for_date or date.today()).strftime("%Y%m%d")
     url = f"https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates={today}"
 
     try:

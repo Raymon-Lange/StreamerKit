@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from mcp.tools.client import ApiClient
+from streamer_mcp.tools.client import ApiClient
 
 
 client = ApiClient()

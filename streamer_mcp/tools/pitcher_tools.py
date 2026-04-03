@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from mcp.tools.client import ApiClient
+from streamer_mcp.tools.client import ApiClient
 
 
 client = ApiClient()
@@ -10,6 +10,7 @@ def streamer_review(
     pitcher: str | None = None,
     league_id: int | None = None,
     year: int | None = None,
+    tomorrow: bool = False,
 ) -> dict:
     return client.get(
         "/pitchers/streamers",
@@ -17,5 +18,6 @@ def streamer_review(
             "pitcher": pitcher,
             "league_id": league_id,
             "year": year,
+            "tomorrow": tomorrow or None,
         },
     )

@@ -143,12 +143,12 @@ tools/dev_down.sh
 
 ## MCP connector
 
-MCP server entrypoint: `mcp/server.py`
+MCP server entrypoint: `streamer_mcp/server.py`
 
 Run:
 
 ```bash
-python -m mcp.server
+python -m streamer_mcp.server
 ```
 
 See `docs/MCP.md` for setup and tool details.

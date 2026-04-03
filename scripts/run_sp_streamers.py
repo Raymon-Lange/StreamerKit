@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import argparse
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 import sys
 
@@ -14,15 +14,18 @@ from utils.config import AppConfig
 
 
 def run(args) -> None:
+    for_date = date.today() + timedelta(days=1) if getattr(args, "tomorrow", False) else None
     result = get_streaming_pitcher_review(
         league_id=getattr(args, "league_id", None),
         year=getattr(args, "year", None),
         pitcher=getattr(args, "pitcher", None),
+        for_date=for_date,
     )
 
+    display_date = for_date or date.today()
     divider = "─" * 96
     print(divider)
-    print(f"📅  {date.today().strftime('%A, %B %d, %Y')}")
+    print(f"📅  {display_date.strftime('%A, %B %d, %Y')}")
     print(f"🏟   League: {result['league']}")
     print(f"Source: {result['source_url']}")
     print(divider)
@@ -81,6 +84,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--league-id", type=int, default=config.league_id)
     parser.add_argument("--year", type=int, default=config.year)
     parser.add_argument("--pitcher", type=str, default=None, help="Optional pitcher name to lookup directly.")
+    parser.add_argument("--tomorrow", action="store_true", help="Show starters for tomorrow instead of today.")
     return parser.parse_args()
 
 

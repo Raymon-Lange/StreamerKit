@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "streamerkit": {
+      "type": "stdio",
+      "command": "/home/raymon/Documents/code/baseball/.venv/bin/python",
+      "args": ["-m", "streamer_mcp.server"],
+      "cwd": "/home/raymon/Documents/code/baseball"
+    }
+  }
+}
