@@ -1,6 +1,6 @@
 # Fantasy Baseball Tools
 
-This repository evaluates ESPN fantasy baseball rosters and waiver options by combining ESPN league data, Pitcher List rankings, ESPN dynasty rankings, and MLB Stats API trends.
+This repository evaluates ESPN fantasy baseball rosters and waiver options by combining ESPN league data, Pitcher List rankings, ESPN points-leagues rankings, ESPN dynasty rankings, and MLB Stats API trends.
 
 ## Current architecture
 
@@ -27,9 +27,9 @@ All cross-source player joins should use `utils/names.py`.
 
 1. Connects to ESPN and reads roster hitters.
 2. Pulls Pitcher List redraft and dynasty rankings.
-3. Pulls ESPN Top 300 dynasty rankings.
+3. Pulls ESPN points Top 300 and ESPN dynasty Top 300 rankings.
 4. Builds recent trend stats from MLB Stats API.
-5. Produces roster recommendations from the merged dynasty signal.
+5. Produces roster recommendations from weighted intent-based scoring.
 
 ### Free-agent hitters
 
@@ -37,9 +37,9 @@ All cross-source player joins should use `utils/names.py`.
 
 1. Connects to ESPN and gathers hitter free agents.
 2. Pulls Pitcher List redraft and dynasty rankings.
-3. Pulls ESPN Top 300 dynasty rankings.
+3. Pulls ESPN points Top 300 and ESPN dynasty Top 300 rankings.
 4. Builds recent trend stats from MLB Stats API.
-5. Produces waiver recommendations from the merged dynasty signal.
+5. Produces waiver recommendations from weighted intent-based scoring.
 
 `scripts/run_hitter_free_agents.py` forwards to `scripts/run_free_agent_hitters.py` for compatibility.
 
@@ -78,11 +78,33 @@ Result was ~27.2s total runtime (no explicit caching in this script path). Main 
 
 Interpretation: runtime is mostly external API/network and ESPN parsing overhead, not local computation.
 
+## Hitter scoring weights
+
+Hitter recommendations use three weighted buckets:
+
+- `current_performance` (recent MLB trend stats)
+- `current_year_rankings` (Pitcher List redraft + ESPN points Top 300)
+- `dynasty_rankings` (Pitcher List dynasty + ESPN dynasty Top 300)
+
+Default weights by script intent:
+
+- Waiver (`scripts/run_free_agent_hitters.py`): `45% / 40% / 15%`
+- Team eval (`scripts/run_team_hitter_eval.py`): `30% / 25% / 45%`
+
+You can override weights per script run:
+
+- `--weight-current-performance`
+- `--weight-current-year-rankings`
+- `--weight-dynasty-rankings`
+
+When a player is missing a ranking source, that bucket score falls back to `0` instead of reallocating all weight to other buckets.
+
 ## Ranking caches
 
 Ranking collectors cache data for 15 days at:
 
 - `.cache/espn_dynasty_top300.json`
+- `.cache/espn_points_top300_2026.json`
 - `.cache/pitcherlist_top_hitters.json`
 - `.cache/pitcherlist_dynasty_hitters.json`
 
@@ -157,7 +179,7 @@ See `docs/MCP.md` for setup and tool details.
 
 ```bash
 python main.py
-python scripts/run_team_hitter_eval.py --team-id 1 --trend-games 10
+python scripts/run_team_hitter_eval.py --team-id 1 --trend-games 15
 python scripts/run_free_agent_hitters.py --top 10 --size 75 --trend-games 15
 python scripts/run_sp_streamers.py
 python scripts/run_recent_drops_waiver_review.py --days 2 --top 25
