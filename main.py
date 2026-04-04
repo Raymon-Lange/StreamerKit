@@ -45,7 +45,8 @@ MENU = """
 │  2) Free Agent Hitters       │
 │  3) Team Hitters             │
 │  4) Waiver Pickup Review     │
-│  5) Exit                     │
+│  5) Roster Optimizer         │
+│  6) Exit                     │
 └──────────────────────────────┘"""
 
 
@@ -71,6 +72,14 @@ def _run_team_hitters() -> None:
     run(types.SimpleNamespace(team_id=team_id, trend_games=trend))
 
 
+def _run_roster_optimizer() -> None:
+    from scripts.run_roster_optimizer import run
+    team_id = ask_int("Team ID (leave blank to use default from config)", default=None)
+    trend = ask_int("Trend games to look back", default=10)
+    min_gap = ask_int("Min score gap to flag a swap", default=10)
+    run(types.SimpleNamespace(team_id=team_id, trend_games=trend, min_gap=float(min_gap or 10)))
+
+
 def _run_waiver_pickup_review() -> None:
     from scripts.run_recent_drops_waiver_review import run
     days = ask_int("Look back how many days", default=2)
@@ -88,7 +97,8 @@ HANDLERS: dict[str, tuple[str, object]] = {
     "2": ("Free Agent Hitters", _run_free_agent_hitters),
     "3": ("Team Hitters", _run_team_hitters),
     "4": ("Waiver Pickup Review", _run_waiver_pickup_review),
-    "5": ("Exit", None),
+    "5": ("Roster Optimizer", _run_roster_optimizer),
+    "6": ("Exit", None),
 }
 
 
@@ -98,7 +108,7 @@ def main() -> None:
         choice = input("Select an option: ").strip()
 
         if choice not in HANDLERS:
-            print(f"\n  Invalid choice {choice!r}. Enter 1–5.\n")
+            print(f"\n  Invalid choice {choice!r}. Enter 1–6.\n")
             continue
 
         label, handler = HANDLERS[choice]

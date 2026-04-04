@@ -46,3 +46,15 @@ class Recommendation:
     action: str
     reason: str
     score: float = 0.0
+
+
+@dataclass(slots=True)
+class LineupSwap:
+    start: "PlayerRecord"
+    sit: "PlayerRecord"
+    slot: str
+    start_rec: Recommendation
+    sit_rec: Recommendation
+    score_gap: float
+    start_trend: "TrendSummary"
+    sit_trend: "TrendSummary"
