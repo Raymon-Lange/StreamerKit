@@ -52,6 +52,8 @@ def _serialize_pitcher_row(player, rank, position_rank: int | None = None) -> di
         "percent_owned": player.percent_owned,
         "streamer_rank": resolved_rank,
         "tier": tier,
+        "opponent_team": rank.opponent_team if rank else None,
+        "opponent_score": rank.opponent_score if rank else None,
         "recommendation": {
             "action": rec.action,
             "reason": rec.reason,

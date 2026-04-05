@@ -46,6 +46,9 @@ def run(args) -> None:
         print(f"{TIER_EMOJI.get(tier, '⚪')} {row['name']} | {row['mlb_team'] or 'N/A'} | Owned: {owned}")
         print(f"  Streamer Rank: {rank_text}")
         print(f"  Tier: {tier}")
+        if row.get("opponent_score"):
+            opp_team = row.get("opponent_team") or "N/A"
+            print(f"  Opponent Score: {row['opponent_score']} ({opp_team})")
         print(f"  Recommendation: {row['recommendation']['action']}")
         print(f"  Season: {row['season_record']} | Last 10: {row['last_ten_record']}")
         if row["last_two_starts"]:
@@ -64,6 +67,9 @@ def run(args) -> None:
         owned = f"{row['percent_owned']:.1f}%" if row["percent_owned"] is not None else "N/A"
         print(f"{TIER_EMOJI.get(tier, '⚪')} {row['name']} | {row['mlb_team'] or 'N/A'} | Owned: {owned}")
         print(f"  Tier: {tier}")
+        if row.get("opponent_score"):
+            opp_team = row.get("opponent_team") or "N/A"
+            print(f"  Opponent Score: {row['opponent_score']} ({opp_team})")
         print(f"  Recommendation: {row['recommendation']['action']}")
         print(f"  Season: {row['season_record']} | Last 10: {row['last_ten_record']}")
         if row["last_two_starts"]:

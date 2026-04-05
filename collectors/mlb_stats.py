@@ -8,6 +8,38 @@ import statsapi
 from models.player import TrendSummary
 
 CURRENT_YEAR = date.today().year
+_TEAM_ABBR_CACHE: dict[int, str] = {}
+
+
+def _team_abbreviation(team_obj: dict | None) -> str:
+    if not team_obj:
+        return "???"
+
+    for key in ("abbreviation", "teamCode", "fileCode"):
+        value = team_obj.get(key)
+        if value:
+            return str(value).upper()
+
+    team_id = team_obj.get("id")
+    if not team_id:
+        return "???"
+    if team_id in _TEAM_ABBR_CACHE:
+        return _TEAM_ABBR_CACHE[team_id]
+
+    try:
+        data = statsapi.get("teams", {"sportId": 1, "teamId": team_id})
+        teams = data.get("teams", [])
+        if teams:
+            full = teams[0]
+            for key in ("abbreviation",):
+                value = full.get(key)
+                if value:
+                    abbr = str(value).upper()
+                    _TEAM_ABBR_CACHE[team_id] = abbr
+                    return abbr
+    except Exception:
+        pass
+    return "???"
 
 
 def get_player_id(name: str, prefer_pitcher: bool = False) -> int | None:
@@ -142,7 +174,7 @@ def get_pitcher_stats(name: str):
     last_two = []
     for game in game_log[:2]:
         stat = game.get("stat", {})
-        opp = game.get("opponent", {}).get("abbreviation", "???")
+        opp = _team_abbreviation(game.get("opponent"))
         matchup = f"vs {opp}" if game.get("isHome", True) else f"@ {opp}"
         result = "W" if stat.get("wins", 0) else "L" if stat.get("losses", 0) else "ND"
         last_two.append({

@@ -17,6 +17,7 @@ TOP_400_DYNASTY_URL = "https://pitcherlist.com/2026-top-400-dynasty-rankings/"
 SP_STREAMERS_CATEGORY_URL = "https://pitcherlist.com/category/fantasy/starting-pitchers/sp-streamers/"
 
 TIER_ORDER = ["Auto-Start", "Probably Start", "Questionable Start", "Do Not Start"]
+OPPONENT_SCORE_ORDER = ["Top", "Solid", "Average", "Weak", "Poor"]
 
 CACHE_TTL = timedelta(days=15)
 CACHE_DIR = Path(__file__).resolve().parents[1] / ".cache"
@@ -166,6 +167,123 @@ def _save_cache(path: Path, url: str, ranked: dict[str, RankingEntry]) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=True, indent=2), encoding="utf-8")
 
 
+def _canonical_team_code(code: str) -> str:
+    normalized = code.strip().upper()
+    remap = {
+        "WSN": "WSH",
+        "CHW": "CWS",
+        "KCR": "KC",
+        "SFG": "SF",
+        "SDP": "SD",
+        "TBR": "TB",
+    }
+    return remap.get(normalized, normalized)
+
+
+def _extract_team_codes(text: str) -> list[str]:
+    if not text:
+        return []
+    codes = re.findall(r"[A-Z]{2,3}", text.upper())
+    return [_canonical_team_code(code) for code in codes]
+
+
+def _parse_opponent_score_table(article) -> dict[str, str]:
+    for table in article.find_all("table"):
+        headers = [th.get_text(" ", strip=True) for th in table.find_all("th")]
+        if not headers:
+            continue
+        if [h.strip().title() for h in headers[:5]] != OPPONENT_SCORE_ORDER:
+            continue
+
+        matchup_scores: dict[str, str] = {}
+        for row in table.find_all("tr"):
+            cells = row.find_all("td")
+            if len(cells) < 5:
+                continue
+            for idx, bucket in enumerate(OPPONENT_SCORE_ORDER):
+                if idx >= len(cells):
+                    break
+                cell_text = cells[idx].get_text(" ", strip=True)
+                for team_code in _extract_team_codes(cell_text):
+                    matchup_scores.setdefault(team_code, bucket)
+        if matchup_scores:
+            return matchup_scores
+
+    return {}
+
+
+def _extract_matchup_opponent_team(text: str) -> str | None:
+    codes = _extract_team_codes(text)
+    if not codes:
+        return None
+    return codes[-1]
+
+
+def _find_tier_label(text: str) -> str | None:
+    normalized = re.sub(r"[^a-z]", "", text.lower())
+    for tier in TIER_ORDER:
+        tier_normalized = re.sub(r"[^a-z]", "", tier.lower())
+        if tier_normalized and tier_normalized in normalized:
+            return tier
+    return None
+
+
+def _parse_streamer_pitcher_tables(article, meta: ArticleMeta, matchup_scores: dict[str, str]) -> dict[str, RankingEntry]:
+    pitchers: dict[str, RankingEntry] = {}
+
+    for table in article.find_all("table"):
+        headers = [th.get_text(" ", strip=True).lower() for th in table.find_all("th")]
+        if not headers or "pitcher" not in headers or "matchup" not in headers:
+            continue
+
+        idx_pitcher = headers.index("pitcher")
+        idx_matchup = headers.index("matchup")
+        current_tier: str | None = None
+
+        for tr in table.find_all("tr"):
+            cells = tr.find_all(["td", "th"])
+            if len(cells) <= max(idx_pitcher, idx_matchup):
+                continue
+
+            pitcher_cell = cells[idx_pitcher]
+            pitcher_text = pitcher_cell.get_text(" ", strip=True)
+            matchup_text = cells[idx_matchup].get_text(" ", strip=True)
+
+            tier_hit = _find_tier_label(pitcher_text)
+            if tier_hit and not pitcher_cell.find("a"):
+                current_tier = tier_hit
+                continue
+
+            anchors = [
+                a for a in pitcher_cell.find_all("a", href=True)
+                if "pitcherlist.com/player/" in a["href"]
+            ]
+            if not anchors:
+                continue
+
+            for anchor in anchors:
+                name = anchor.get_text(strip=True)
+                if not name:
+                    continue
+                key = normalize_name(name)
+                opponent_team = _extract_matchup_opponent_team(matchup_text)
+                pitchers.setdefault(
+                    key,
+                    RankingEntry(
+                        source="pitcherlist_sp_streamers",
+                        tier=current_tier or "Not Ranked",
+                        article_url=meta.url,
+                        article_title=meta.title,
+                        article_date=meta.date_text,
+                        opponent_team=opponent_team,
+                        opponent_score=matchup_scores.get(opponent_team) if opponent_team else None,
+                        raw=tr.get_text(" ", strip=True),
+                    ),
+                )
+
+    return pitchers
+
+
 def scrape_top_hitters(
     url: str = TOP_300_HITTERS_URL,
     limit: int = 300,
@@ -289,16 +407,15 @@ def scrape_sp_streamer_tiers(url: str | None = None) -> tuple[str, dict[str, Ran
     resolved_url = url or get_latest_streamer_url()
     soup = fetch_html(resolved_url, timeout=10)
     meta = extract_article_meta(soup, resolved_url)
-    pitchers: dict[str, RankingEntry] = {}
-    current_tier: str | None = None
-
     article = soup.find("article") or soup.find("div", class_=re.compile("entry|content|post")) or soup
+    matchup_scores = _parse_opponent_score_table(article)
+    pitchers = _parse_streamer_pitcher_tables(article, meta=meta, matchup_scores=matchup_scores)
+    current_tier: str | None = None
     for elem in article.find_all(["h2", "h3", "h4", "strong", "b", "p", "li", "td"]):
         text = elem.get_text(strip=True)
-        for tier in TIER_ORDER:
-            if tier.lower() in text.lower() and len(text) < 60:
-                current_tier = tier
-                break
+        tier_hit = _find_tier_label(text)
+        if tier_hit and len(text) < 60:
+            current_tier = tier_hit
         if not current_tier:
             continue
         for anchor in elem.find_all("a", href=True):
@@ -309,6 +426,7 @@ def scrape_sp_streamer_tiers(url: str | None = None) -> tuple[str, dict[str, Ran
             if not name:
                 continue
             key = normalize_name(name)
+            opponent_team = _extract_matchup_opponent_team(text)
             pitchers.setdefault(
                 key,
                 RankingEntry(
@@ -317,6 +435,8 @@ def scrape_sp_streamer_tiers(url: str | None = None) -> tuple[str, dict[str, Ran
                     article_url=meta.url,
                     article_title=meta.title,
                     article_date=meta.date_text,
+                    opponent_team=opponent_team,
+                    opponent_score=matchup_scores.get(opponent_team) if opponent_team else None,
                     raw=text,
                 ),
             )

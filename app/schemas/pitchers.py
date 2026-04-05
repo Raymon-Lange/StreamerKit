@@ -26,6 +26,8 @@ class PitcherReviewRow(BaseModel):
     percent_owned: float | None = None
     streamer_rank: int | None = None
     tier: str
+    opponent_team: str | None = None
+    opponent_score: str | None = None
     recommendation: RecommendationModel
     season_record: str
     last_ten_record: str

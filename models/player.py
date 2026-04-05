@@ -13,6 +13,8 @@ class RankingEntry:
     article_title: str | None = None
     article_date: str | None = None
     position: str | None = None
+    opponent_team: str | None = None
+    opponent_score: str | None = None
     raw: str | None = None
 
 
