@@ -4,6 +4,7 @@ from datetime import date
 from difflib import get_close_matches
 
 from collectors.espn import build_context, get_all_roster_pitchers, get_free_agent_pitchers
+from collectors.espn_keeper_cost import KeeperCostEntry, scrape_espn_keeper_cost
 from collectors.mlb_stats import get_pitcher_stats, get_todays_probable_starters
 from collectors.pitcherlist import scrape_sp_streamer_tiers
 from engines.pitcher_engine import streamer_recommendation
@@ -39,11 +40,17 @@ def _find_pitcher_match(
     return None, None, [all_names[name] for name in matches]
 
 
-def _serialize_pitcher_row(player, rank, position_rank: int | None = None) -> dict:
+def _serialize_pitcher_row(
+    player,
+    rank,
+    position_rank: int | None = None,
+    keeper_cost: dict[str, KeeperCostEntry] | None = None,
+) -> dict:
     tier = rank.tier if rank else "Not Ranked"
     rec = streamer_recommendation(tier)
     season_record, last_ten, last_two = get_pitcher_stats(player.name)
     resolved_rank = rank.rank if rank and rank.rank else position_rank
+    keeper_entry = (keeper_cost or {}).get(player.normalized_name)
     return {
         "name": player.name,
         "normalized_name": player.normalized_name,
@@ -54,6 +61,10 @@ def _serialize_pitcher_row(player, rank, position_rank: int | None = None) -> di
         "tier": tier,
         "opponent_team": rank.opponent_team if rank else None,
         "opponent_score": rank.opponent_score if rank else None,
+        "keeper_drafted_round": keeper_entry.drafted_round if keeper_entry else None,
+        "keeper_drafted_round_pick": keeper_entry.drafted_round_pick if keeper_entry else None,
+        "keeper_projected_round": keeper_entry.projected_keeper_round if keeper_entry else None,
+        "keeper_projected_pick": keeper_entry.projected_keeper_overall_pick if keeper_entry else None,
         "recommendation": {
             "action": rec.action,
             "reason": rec.reason,
@@ -79,6 +90,7 @@ def get_streaming_pitcher_review(
     probable_starters = get_todays_probable_starters(for_date=for_date)
     streamer_url, streamer_ranks = scrape_sp_streamer_tiers()
     streamer_positions = {name: idx for idx, name in enumerate(streamer_ranks.keys(), start=1)}
+    keeper_cost = scrape_espn_keeper_cost(context)
 
     free_agents = get_free_agent_pitchers(context, size=200, position="SP")
     roster_pitchers = get_all_roster_pitchers(context)
@@ -126,13 +138,25 @@ def get_streaming_pitcher_review(
         rank = streamer_ranks.get(matched_key)
         payload["found"] = True
         payload["query"] = pitcher
-        payload["row"] = _serialize_pitcher_row(row_player, rank, position_rank=streamer_positions.get(matched_key))
+        payload["row"] = _serialize_pitcher_row(
+            row_player,
+            rank,
+            position_rank=streamer_positions.get(matched_key),
+            keeper_cost=keeper_cost,
+        )
         return payload
 
     rows = []
     for player in starters_today:
         rank = streamer_ranks.get(player.normalized_name)
-        rows.append(_serialize_pitcher_row(player, rank, position_rank=streamer_positions.get(player.normalized_name)))
+        rows.append(
+            _serialize_pitcher_row(
+                player,
+                rank,
+                position_rank=streamer_positions.get(player.normalized_name),
+                keeper_cost=keeper_cost,
+            )
+        )
     payload["rows"] = rows
     payload["count"] = len(rows)
     return payload

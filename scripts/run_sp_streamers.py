@@ -49,6 +49,16 @@ def run(args) -> None:
         if row.get("opponent_score"):
             opp_team = row.get("opponent_team") or "N/A"
             print(f"  Opponent Score: {row['opponent_score']} ({opp_team})")
+        if row.get("keeper_projected_round") is not None:
+            drafted_round = row.get("keeper_drafted_round")
+            drafted_round_pick = row.get("keeper_drafted_round_pick")
+            draft_slot = f"{drafted_round}.{drafted_round_pick}" if drafted_round_pick else str(drafted_round)
+            print(
+                f"  Keeper Cost: Drafted R{draft_slot} -> Keep in R{row['keeper_projected_round']}"
+                f" (Overall {row.get('keeper_projected_pick') or 'NR'})"
+            )
+        else:
+            print("  Keeper Cost: NR")
         print(f"  Recommendation: {row['recommendation']['action']}")
         print(f"  Season: {row['season_record']} | Last 10: {row['last_ten_record']}")
         if row["last_two_starts"]:
@@ -70,6 +80,16 @@ def run(args) -> None:
         if row.get("opponent_score"):
             opp_team = row.get("opponent_team") or "N/A"
             print(f"  Opponent Score: {row['opponent_score']} ({opp_team})")
+        if row.get("keeper_projected_round") is not None:
+            drafted_round = row.get("keeper_drafted_round")
+            drafted_round_pick = row.get("keeper_drafted_round_pick")
+            draft_slot = f"{drafted_round}.{drafted_round_pick}" if drafted_round_pick else str(drafted_round)
+            print(
+                f"  Keeper Cost: Drafted R{draft_slot} -> Keep in R{row['keeper_projected_round']}"
+                f" (Overall {row.get('keeper_projected_pick') or 'NR'})"
+            )
+        else:
+            print("  Keeper Cost: NR")
         print(f"  Recommendation: {row['recommendation']['action']}")
         print(f"  Season: {row['season_record']} | Last 10: {row['last_ten_record']}")
         if row["last_two_starts"]:
