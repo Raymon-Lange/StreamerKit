@@ -5,6 +5,7 @@ from datetime import date
 
 from collectors.espn import build_context, get_free_agent_hitters
 from collectors.espn_dynasty import scrape_espn_dynasty_hitters
+from collectors.espn_keeper_cost import scrape_espn_keeper_cost
 from collectors.espn_points import scrape_espn_points_top300
 from collectors.mlb_stats import summarize_recent_hitting
 from collectors.pitcherlist import scrape_dynasty_hitters, scrape_top_hitters
@@ -42,6 +43,7 @@ def get_free_agent_hitter_recommendations(
     espn_points = scrape_espn_points_top300()
     pl_dynasty = scrape_dynasty_hitters()
     espn_dynasty = scrape_espn_dynasty_hitters()
+    keeper_cost = scrape_espn_keeper_cost(context)
     free_agents = get_free_agent_hitters(context, size_per_pos=size)
 
     def _build_row(player):
@@ -53,13 +55,18 @@ def get_free_agent_hitter_recommendations(
         )
         pl_dynasty_rank = pl_dynasty.get(player.normalized_name).rank if player.normalized_name in pl_dynasty else None
         espn_dynasty_rank = espn_dynasty.get(player.normalized_name).rank if player.normalized_name in espn_dynasty else None
-        dynasty_rank = min((rank for rank in (pl_dynasty_rank, espn_dynasty_rank) if rank is not None), default=None)
+        keeper_entry = keeper_cost.get(player.normalized_name)
+        keeper_projected_pick = keeper_entry.projected_keeper_overall_pick if keeper_entry else None
+        dynasty_rank = min(
+            (rank for rank in (pl_dynasty_rank, espn_dynasty_rank, keeper_projected_pick) if rank is not None),
+            default=None,
+        )
         trend = summarize_recent_hitting(player.name, trend_games=trend_games)
         rec, scoring = evaluate_weighted_hitter(
             intent="waiver",
             trend_label=trend.label,
             current_year_ranks=[pl_redraft_rank, espn_points_rank],
-            dynasty_ranks=[pl_dynasty_rank, espn_dynasty_rank],
+            dynasty_ranks=[pl_dynasty_rank, espn_dynasty_rank, keeper_projected_pick],
             weight_profile=configured_weights,
         )
         return {
@@ -73,6 +80,10 @@ def get_free_agent_hitter_recommendations(
             "current_year_rank": current_year_rank,
             "pl_dynasty_rank": pl_dynasty_rank,
             "espn_dynasty_rank": espn_dynasty_rank,
+            "keeper_drafted_round": keeper_entry.drafted_round if keeper_entry else None,
+            "keeper_drafted_round_pick": keeper_entry.drafted_round_pick if keeper_entry else None,
+            "keeper_projected_round": keeper_entry.projected_keeper_round if keeper_entry else None,
+            "keeper_projected_pick": keeper_projected_pick,
             "dynasty_rank": dynasty_rank,
             "trend": {
                 "label": trend.label,

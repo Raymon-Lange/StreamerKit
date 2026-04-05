@@ -53,6 +53,16 @@ def run(args) -> None:
             f"Dynasty Rank (Best): {row['dynasty_rank'] or 'NR'} | "
             f"PL: {row['pl_dynasty_rank'] or 'NR'} | ESPN: {row['espn_dynasty_rank'] or 'NR'}"
         )
+        if row["keeper_projected_round"] is not None:
+            drafted_round = row["keeper_drafted_round"]
+            drafted_round_pick = row["keeper_drafted_round_pick"]
+            draft_slot = f"{drafted_round}.{drafted_round_pick}" if drafted_round_pick else str(drafted_round)
+            print(
+                f"  Keeper Cost: Drafted R{draft_slot} -> Keep in R{row['keeper_projected_round']}"
+                f" (Overall {row['keeper_projected_pick'] or 'NR'})"
+            )
+        else:
+            print("  Keeper Cost: NR")
         print(f"  Trend: {row['trend']['label']} | {row['trend']['summary']}")
         print(f"  Recommendation: {row['recommendation']['action']}")
         print(f"  Why: {row['recommendation']['reason']}")

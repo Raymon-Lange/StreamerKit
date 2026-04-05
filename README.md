@@ -1,6 +1,6 @@
 # Fantasy Baseball Tools
 
-This repository evaluates ESPN fantasy baseball rosters and waiver options by combining ESPN league data, Pitcher List rankings, ESPN points-leagues rankings, ESPN dynasty rankings, and MLB Stats API trends.
+This repository evaluates ESPN fantasy baseball rosters and waiver options by combining ESPN league data, Pitcher List rankings, ESPN points-leagues rankings, ESPN dynasty rankings, league draft keeper-cost projections, and MLB Stats API trends.
 
 ## Current architecture
 
@@ -28,8 +28,9 @@ All cross-source player joins should use `utils/names.py`.
 1. Connects to ESPN and reads roster hitters.
 2. Pulls Pitcher List redraft and dynasty rankings.
 3. Pulls ESPN points Top 300 and ESPN dynasty Top 300 rankings.
-4. Builds recent trend stats from MLB Stats API.
-5. Produces roster recommendations from weighted intent-based scoring.
+4. Pulls ESPN league draft picks and computes keeper-cost projection (`draft round - 2`, floor round 1).
+5. Builds recent trend stats from MLB Stats API.
+6. Produces roster recommendations from weighted intent-based scoring.
 
 ### Free-agent hitters
 
@@ -38,8 +39,9 @@ All cross-source player joins should use `utils/names.py`.
 1. Connects to ESPN and gathers hitter free agents.
 2. Pulls Pitcher List redraft and dynasty rankings.
 3. Pulls ESPN points Top 300 and ESPN dynasty Top 300 rankings.
-4. Builds recent trend stats from MLB Stats API.
-5. Produces waiver recommendations from weighted intent-based scoring.
+4. Pulls ESPN league draft picks and computes keeper-cost projection (`draft round - 2`, floor round 1).
+5. Builds recent trend stats from MLB Stats API.
+6. Produces waiver recommendations from weighted intent-based scoring.
 
 `scripts/run_hitter_free_agents.py` forwards to `scripts/run_free_agent_hitters.py` for compatibility.
 
@@ -84,7 +86,7 @@ Hitter recommendations use three weighted buckets:
 
 - `current_performance` (recent MLB trend stats)
 - `current_year_rankings` (Pitcher List redraft + ESPN points Top 300)
-- `dynasty_rankings` (Pitcher List dynasty + ESPN dynasty Top 300)
+- `dynasty_rankings` (Pitcher List dynasty + ESPN dynasty Top 300 + projected keeper draft cost converted to pick rank)
 
 Default weights by script intent:
 
@@ -104,11 +106,13 @@ When a player is missing a ranking source, that bucket score falls back to `0` i
 Ranking collectors cache data for 15 days at:
 
 - `.cache/espn_dynasty_top300.json`
+- `.cache/espn_keeper_cost_<league_id>_<year>.json`
 - `.cache/espn_points_top300_2026.json`
 - `.cache/pitcherlist_top_hitters.json`
 - `.cache/pitcherlist_dynasty_hitters.json`
 
 If a cache file is not older than 15 days, the collector reads cached data and skips refresh. If refresh fails, collectors fall back to cached payloads when available.
+`espn_keeper_cost_<league_id>_<year>.json` is intentionally different: once it exists, it is reused without TTL refresh (unless explicitly force-refreshed in code).
 
 ## Environment
 

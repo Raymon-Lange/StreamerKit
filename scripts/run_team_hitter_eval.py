@@ -10,6 +10,7 @@ if __package__ in {None, ""}:
 
 from collectors.espn import build_context, get_roster_players, get_team
 from collectors.espn_dynasty import scrape_espn_dynasty_hitters
+from collectors.espn_keeper_cost import scrape_espn_keeper_cost
 from collectors.espn_points import scrape_espn_points_top300
 from collectors.mlb_stats import summarize_recent_hitting
 from collectors.pitcherlist import scrape_dynasty_hitters, scrape_top_hitters
@@ -40,6 +41,7 @@ def run(args) -> None:
     espn_points = scrape_espn_points_top300()
     pl_dynasty = scrape_dynasty_hitters()
     espn_dynasty = scrape_espn_dynasty_hitters()
+    keeper_cost = scrape_espn_keeper_cost(context)
     hitters = get_roster_players(context, team_id=team.team_id, player_type="hitters")
 
     rows = []
@@ -52,13 +54,18 @@ def run(args) -> None:
         )
         pl_dynasty_rank = pl_dynasty.get(player.normalized_name).rank if player.normalized_name in pl_dynasty else None
         espn_dynasty_rank = espn_dynasty.get(player.normalized_name).rank if player.normalized_name in espn_dynasty else None
-        dynasty_rank = min((rank for rank in (pl_dynasty_rank, espn_dynasty_rank) if rank is not None), default=None)
+        keeper_entry = keeper_cost.get(player.normalized_name)
+        keeper_projected_pick = keeper_entry.projected_keeper_overall_pick if keeper_entry else None
+        dynasty_rank = min(
+            (rank for rank in (pl_dynasty_rank, espn_dynasty_rank, keeper_projected_pick) if rank is not None),
+            default=None,
+        )
         trend = summarize_recent_hitting(player.name, trend_games=trend_games)
         rec, scoring = evaluate_weighted_hitter(
             intent="team_eval",
             trend_label=trend.label,
             current_year_ranks=[pl_redraft_rank, espn_points_rank],
-            dynasty_ranks=[pl_dynasty_rank, espn_dynasty_rank],
+            dynasty_ranks=[pl_dynasty_rank, espn_dynasty_rank, keeper_projected_pick],
             weight_profile=configured_weights,
         )
         rows.append(
@@ -69,6 +76,7 @@ def run(args) -> None:
                 espn_points_rank,
                 pl_dynasty_rank,
                 espn_dynasty_rank,
+                keeper_entry,
                 dynasty_rank,
                 trend,
                 rec,
@@ -76,7 +84,7 @@ def run(args) -> None:
             )
         )
 
-    rows.sort(key=lambda row: (-(row[8].score), (row[1] or 9999), (row[6] or 9999), row[0].name))
+    rows.sort(key=lambda row: (-(row[9].score), (row[1] or 9999), (row[7] or 9999), row[0].name))
 
     divider = "─" * 96
     print(divider)
@@ -99,6 +107,7 @@ def run(args) -> None:
         espn_points_rank,
         pl_dynasty_rank,
         espn_dynasty_rank,
+        keeper_entry,
         dynasty_rank,
         trend,
         rec,
@@ -115,6 +124,18 @@ def run(args) -> None:
             f"Dynasty Rank (Best): {dynasty_rank or 'NR'} | "
             f"PL: {pl_dynasty_rank or 'NR'} | ESPN: {espn_dynasty_rank or 'NR'}"
         )
+        if keeper_entry:
+            draft_slot = (
+                f"{keeper_entry.drafted_round}.{keeper_entry.drafted_round_pick}"
+                if keeper_entry.drafted_round_pick
+                else str(keeper_entry.drafted_round)
+            )
+            print(
+                f"  Keeper Cost: Drafted R{draft_slot} -> Keep in R{keeper_entry.projected_keeper_round}"
+                f" (Overall {keeper_entry.projected_keeper_overall_pick or 'NR'})"
+            )
+        else:
+            print("  Keeper Cost: NR")
         print(f"  Trend: {trend.label} | {trend.summary}")
         print(f"  Recommendation: {rec.action}")
         print(f"  Why: {rec.reason}")
