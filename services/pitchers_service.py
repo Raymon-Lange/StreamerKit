@@ -3,13 +3,15 @@ from __future__ import annotations
 from datetime import date
 from difflib import get_close_matches
 
-from collectors.espn import build_context, get_all_roster_pitchers, get_free_agent_pitchers
+from collectors.espn import build_context, get_all_roster_pitchers, get_free_agent_pitchers, get_roster_players, get_team
 from collectors.espn_keeper_cost import KeeperCostEntry, scrape_espn_keeper_cost
-from collectors.mlb_stats import get_pitcher_stats, get_todays_probable_starters
+from collectors.mlb_stats import get_pitcher_stats, get_player_id, get_todays_probable_starters
 from collectors.pitcherlist import scrape_sp_streamer_tiers
 from engines.pitcher_engine import streamer_recommendation
 from utils.config import AppConfig
 from utils.names import normalize_name
+
+import statsapi
 
 
 def _find_pitcher_match(
@@ -73,6 +75,134 @@ def _serialize_pitcher_row(
         "season_record": season_record,
         "last_ten_record": last_ten,
         "last_two_starts": last_two,
+    }
+
+
+def _as_float(value) -> float | None:
+    try:
+        if value in {None, "", "-.--"}:
+            return None
+        return float(value)
+    except Exception:
+        return None
+
+
+def _as_int(value) -> int | None:
+    try:
+        if value in {None, ""}:
+            return None
+        return int(value)
+    except Exception:
+        return None
+
+
+def _fetch_pitcher_season_metrics(name: str, season: int) -> dict:
+    player_id = get_player_id(name, prefer_pitcher=True)
+    if not player_id:
+        return {"era": None, "k": None, "wins": None, "losses": None, "ip": None}
+
+    try:
+        payload = statsapi.player_stat_data(player_id, group="pitching", type="season", season=season)
+        stat_groups = payload.get("stats", [])
+        season_stats = stat_groups[0].get("stats", {}) if stat_groups else {}
+    except Exception:
+        season_stats = {}
+
+    return {
+        "era": _as_float(season_stats.get("era")),
+        "k": _as_int(season_stats.get("strikeOuts")),
+        "wins": _as_int(season_stats.get("wins")),
+        "losses": _as_int(season_stats.get("losses")),
+        "ip": season_stats.get("inningsPitched"),
+    }
+
+
+def _assign_rank(rows: list[dict], field: str, *, descending: bool) -> None:
+    present = [row for row in rows if row.get(field) is not None]
+    present.sort(key=lambda row: row[field], reverse=descending)
+    rank = 1
+    for row in present:
+        row[f"{field}_rank"] = rank
+        rank += 1
+    for row in rows:
+        row.setdefault(f"{field}_rank", None)
+
+
+def _rank_to_score(rank: int | None, total: int) -> float:
+    if rank is None or total <= 0:
+        return 0.0
+    return ((total - rank + 1) / total) * 100.0
+
+
+def get_team_pitcher_evaluation(
+    league_id: int | None = None,
+    team_id: int | None = None,
+    year: int | None = None,
+) -> dict:
+    config = AppConfig(
+        league_id=league_id or AppConfig().league_id,
+        team_id=team_id or AppConfig().team_id,
+        year=year or AppConfig().year,
+    )
+
+    context = build_context(config)
+    team = get_team(context, team_id=config.team_id or None)
+    pitchers = get_roster_players(context, team_id=team.team_id, player_type="pitchers")
+    keeper_cost = scrape_espn_keeper_cost(context)
+
+    rows: list[dict] = []
+    for player in pitchers:
+        season_stats = _fetch_pitcher_season_metrics(player.name, season=config.year)
+        keeper_entry = keeper_cost.get(player.normalized_name)
+        rows.append(
+            {
+                "name": player.name,
+                "normalized_name": player.normalized_name,
+                "mlb_team": player.mlb_team,
+                "positions": player.positions,
+                "percent_owned": player.percent_owned,
+                "era": season_stats["era"],
+                "k": season_stats["k"],
+                "wins": season_stats["wins"],
+                "losses": season_stats["losses"],
+                "ip": season_stats["ip"],
+                "keeper_round": keeper_entry.projected_keeper_round if keeper_entry else None,
+                "keeper_pick": keeper_entry.projected_keeper_overall_pick if keeper_entry else None,
+                "drafted_round": keeper_entry.drafted_round if keeper_entry else None,
+                "drafted_round_pick": keeper_entry.drafted_round_pick if keeper_entry else None,
+            }
+        )
+
+    _assign_rank(rows, "era", descending=False)
+    _assign_rank(rows, "k", descending=True)
+    _assign_rank(rows, "keeper_pick", descending=False)
+
+    total = len(rows)
+    for row in rows:
+        era_score = _rank_to_score(row["era_rank"], total)
+        k_score = _rank_to_score(row["k_rank"], total)
+        keeper_score = _rank_to_score(row["keeper_pick_rank"], total)
+        row["composite_score"] = round((era_score + k_score + keeper_score) / 3.0, 1)
+
+    rows.sort(
+        key=lambda row: (
+            -row["composite_score"],
+            (row["era_rank"] or 9999),
+            (row["k_rank"] or 9999),
+            (row["keeper_pick_rank"] or 9999),
+            row["name"],
+        )
+    )
+    for idx, row in enumerate(rows, start=1):
+        row["overall_rank"] = idx
+
+    return {
+        "generated_on": date.today().isoformat(),
+        "league": context.league.settings.name,
+        "team": getattr(team, "team_name", None),
+        "formula": "ERA rank (lower better) + K rank (higher better) + Keeper-cost rank (lower pick better)",
+        "count": len(rows),
+        "rows": rows,
     }
 
 

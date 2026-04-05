@@ -4,8 +4,8 @@ from datetime import date, timedelta
 from fastapi import APIRouter, Depends
 
 from app.deps import require_api_key
-from app.schemas.pitchers import PitcherReviewResponse
-from services.pitchers_service import get_streaming_pitcher_review
+from app.schemas.pitchers import PitcherReviewResponse, TeamPitcherEvalResponse
+from services.pitchers_service import get_streaming_pitcher_review, get_team_pitcher_evaluation
 
 router = APIRouter(prefix="/pitchers", tags=["pitchers"], dependencies=[Depends(require_api_key)])
 
@@ -28,4 +28,22 @@ def streamers(
         year=year,
         pitcher=pitcher,
         for_date=for_date,
+    )
+
+
+@router.get(
+    "/team-eval",
+    response_model=TeamPitcherEvalResponse,
+    summary="Team Pitcher Evaluation",
+    description="Ranks roster pitchers by ERA, strikeouts, and keeper draft-cost level.",
+)
+def team_eval(
+    team_id: int | None = None,
+    league_id: int | None = None,
+    year: int | None = None,
+) -> dict:
+    return get_team_pitcher_evaluation(
+        league_id=league_id,
+        team_id=team_id,
+        year=year,
     )

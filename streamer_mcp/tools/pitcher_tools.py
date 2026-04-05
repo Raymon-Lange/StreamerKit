@@ -21,3 +21,18 @@ def streamer_review(
             "tomorrow": tomorrow or None,
         },
     )
+
+
+def team_pitcher_eval(
+    team_id: int | None = None,
+    league_id: int | None = None,
+    year: int | None = None,
+) -> dict:
+    return client.get(
+        "/pitchers/team-eval",
+        {
+            "team_id": team_id,
+            "league_id": league_id,
+            "year": year,
+        },
+    )

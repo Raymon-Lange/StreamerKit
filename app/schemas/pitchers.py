@@ -28,6 +28,10 @@ class PitcherReviewRow(BaseModel):
     tier: str
     opponent_team: str | None = None
     opponent_score: str | None = None
+    keeper_drafted_round: int | None = None
+    keeper_drafted_round_pick: int | None = None
+    keeper_projected_round: int | None = None
+    keeper_projected_pick: int | None = None
     recommendation: RecommendationModel
     season_record: str
     last_ten_record: str
@@ -44,3 +48,34 @@ class PitcherReviewResponse(BaseModel):
     suggestions: list[str] | None = None
     row: PitcherReviewRow | None = None
     rows: list[PitcherReviewRow] | None = None
+
+
+class TeamPitcherEvalRow(BaseModel):
+    overall_rank: int
+    name: str
+    normalized_name: str
+    mlb_team: str | None = None
+    positions: list[str]
+    percent_owned: float | None = None
+    era: float | None = None
+    era_rank: int | None = None
+    k: int | None = None
+    k_rank: int | None = None
+    wins: int | None = None
+    losses: int | None = None
+    ip: str | None = None
+    drafted_round: int | None = None
+    drafted_round_pick: int | None = None
+    keeper_round: int | None = None
+    keeper_pick: int | None = None
+    keeper_pick_rank: int | None = None
+    composite_score: float
+
+
+class TeamPitcherEvalResponse(BaseModel):
+    generated_on: str
+    league: str
+    team: str | None = None
+    formula: str
+    count: int
+    rows: list[TeamPitcherEvalRow]

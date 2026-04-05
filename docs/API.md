@@ -62,6 +62,20 @@ Behavior:
 - No `pitcher`: returns the full streamers list.
 - With `pitcher`: returns exact/close-match lookup payload.
 
+### GET `/pitchers/team-eval`
+Team pitcher evaluation based on roster-only pitchers.
+
+Parameters:
+- `team_id` (optional override)
+- `league_id` (optional override)
+- `year` (optional override)
+
+Behavior:
+- Ranks roster pitchers by:
+  - ERA rank (lower better)
+  - Strikeout rank (higher better)
+  - Keeper-cost rank using projected keeper pick from draft history (lower better)
+
 ## Run Locally
 
 ```bash

@@ -32,6 +32,15 @@ All cross-source player joins should use `utils/names.py`.
 5. Builds recent trend stats from MLB Stats API.
 6. Produces roster recommendations from weighted intent-based scoring.
 
+### Team pitcher evaluation
+
+`scripts/run_team_pitcher_eval.py`:
+
+1. Connects to ESPN and reads roster pitchers.
+2. Pulls MLB season pitcher stats for ERA and strikeouts.
+3. Pulls ESPN league draft picks and computes keeper-cost projection (`draft round - 2`, floor round 1).
+4. Ranks pitchers by team-relative ERA rank (lower better), K rank (higher better), and keeper-cost rank (lower projected pick better).
+
 ### Free-agent hitters
 
 `scripts/run_free_agent_hitters.py`:
@@ -184,6 +193,7 @@ See `docs/MCP.md` for setup and tool details.
 ```bash
 python main.py
 python scripts/run_team_hitter_eval.py --team-id 1 --trend-games 15
+python scripts/run_team_pitcher_eval.py --team-id 1
 python scripts/run_free_agent_hitters.py --top 10 --size 75 --trend-games 15
 python scripts/run_sp_streamers.py
 python scripts/run_recent_drops_waiver_review.py --days 2 --top 25

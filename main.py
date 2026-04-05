@@ -44,9 +44,10 @@ MENU = """
 │  1) Streaming Pitchers       │
 │  2) Free Agent Hitters       │
 │  3) Team Hitters             │
-│  4) Waiver Pickup Review     │
-│  5) Roster Optimizer         │
-│  6) Exit                     │
+│  4) Team Pitchers            │
+│  5) Waiver Pickup Review     │
+│  6) Roster Optimizer         │
+│  7) Exit                     │
 └──────────────────────────────┘"""
 
 
@@ -70,6 +71,12 @@ def _run_team_hitters() -> None:
     team_id = ask_int("Team ID (leave blank to use default from config)", default=None)
     trend = ask_int("Trend games to look back", default=10)
     run(types.SimpleNamespace(team_id=team_id, trend_games=trend))
+
+
+def _run_team_pitchers() -> None:
+    from scripts.run_team_pitcher_eval import run
+    team_id = ask_int("Team ID (leave blank to use default from config)", default=None)
+    run(types.SimpleNamespace(team_id=team_id))
 
 
 def _run_roster_optimizer() -> None:
@@ -96,9 +103,10 @@ HANDLERS: dict[str, tuple[str, object]] = {
     "1": ("Streaming Pitchers", _run_streaming_pitchers),
     "2": ("Free Agent Hitters", _run_free_agent_hitters),
     "3": ("Team Hitters", _run_team_hitters),
-    "4": ("Waiver Pickup Review", _run_waiver_pickup_review),
-    "5": ("Roster Optimizer", _run_roster_optimizer),
-    "6": ("Exit", None),
+    "4": ("Team Pitchers", _run_team_pitchers),
+    "5": ("Waiver Pickup Review", _run_waiver_pickup_review),
+    "6": ("Roster Optimizer", _run_roster_optimizer),
+    "7": ("Exit", None),
 }
 
 
@@ -108,7 +116,7 @@ def main() -> None:
         choice = input("Select an option: ").strip()
 
         if choice not in HANDLERS:
-            print(f"\n  Invalid choice {choice!r}. Enter 1–6.\n")
+            print(f"\n  Invalid choice {choice!r}. Enter 1–7.\n")
             continue
 
         label, handler = HANDLERS[choice]

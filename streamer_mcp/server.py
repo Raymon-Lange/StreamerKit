@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from streamer_mcp.tools.hitter_tools import free_agent_hitters
-from streamer_mcp.tools.pitcher_tools import streamer_review
+from streamer_mcp.tools.pitcher_tools import streamer_review, team_pitcher_eval
 from streamer_mcp.tools.waiver_tools import recent_drops_waiver_review
 
 try:
@@ -65,6 +65,19 @@ def get_streaming_pitchers(
         league_id=league_id,
         year=year,
         tomorrow=tomorrow,
+    )
+
+
+@mcp.tool(description="Get team pitcher evaluation (ERA, strikeouts, keeper-cost rank) from the StreamerKit API.")
+def get_team_pitcher_evaluation(
+    team_id: int | None = None,
+    league_id: int | None = None,
+    year: int | None = None,
+) -> dict:
+    return team_pitcher_eval(
+        team_id=team_id,
+        league_id=league_id,
+        year=year,
     )
 
 
