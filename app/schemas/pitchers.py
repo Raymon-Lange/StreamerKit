@@ -79,3 +79,24 @@ class TeamPitcherEvalResponse(BaseModel):
     formula: str
     count: int
     rows: list[TeamPitcherEvalRow]
+
+
+class PitcherStartEvalRow(PitcherReviewRow):
+    slot: str
+    is_bench: bool
+    is_probable_today: bool
+
+
+class PitcherStartEvalResponse(BaseModel):
+    generated_on: str
+    league: str
+    team: str | None = None
+    source_url: str
+    roster_pitcher_count: int
+    probable_roster_count: int
+    fallback_to_streamers: bool
+    recommended_count: int
+    recommended_rows: list[PitcherStartEvalRow]
+    bench_probable_rows: list[PitcherStartEvalRow]
+    suggested_moves: list[str]
+    streamer_fallback_rows: list[PitcherReviewRow] | None = None

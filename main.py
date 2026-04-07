@@ -47,7 +47,8 @@ MENU = """
 │  4) Team Pitchers            │
 │  5) Waiver Pickup Review     │
 │  6) Roster Optimizer         │
-│  7) Exit                     │
+│  7) Pitcher Start Eval       │
+│  8) Exit                     │
 └──────────────────────────────┘"""
 
 
@@ -87,6 +88,13 @@ def _run_roster_optimizer() -> None:
     run(types.SimpleNamespace(team_id=team_id, trend_games=trend, min_gap=float(min_gap or 10)))
 
 
+def _run_pitcher_start_eval() -> None:
+    from scripts.run_pitcher_start_eval import run
+    team_id = ask_int("Team ID (leave blank to use default from config)", default=None)
+    tomorrow = ask_bool("Evaluate tomorrow instead of today?", default=False)
+    run(types.SimpleNamespace(team_id=team_id, tomorrow=tomorrow))
+
+
 def _run_waiver_pickup_review() -> None:
     from scripts.run_recent_drops_waiver_review import run
     days = ask_int("Look back how many days", default=2)
@@ -106,7 +114,8 @@ HANDLERS: dict[str, tuple[str, object]] = {
     "4": ("Team Pitchers", _run_team_pitchers),
     "5": ("Waiver Pickup Review", _run_waiver_pickup_review),
     "6": ("Roster Optimizer", _run_roster_optimizer),
-    "7": ("Exit", None),
+    "7": ("Pitcher Start Eval", _run_pitcher_start_eval),
+    "8": ("Exit", None),
 }
 
 
@@ -116,7 +125,7 @@ def main() -> None:
         choice = input("Select an option: ").strip()
 
         if choice not in HANDLERS:
-            print(f"\n  Invalid choice {choice!r}. Enter 1–7.\n")
+            print(f"\n  Invalid choice {choice!r}. Enter 1–8.\n")
             continue
 
         label, handler = HANDLERS[choice]

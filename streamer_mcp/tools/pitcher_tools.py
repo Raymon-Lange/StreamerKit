@@ -36,3 +36,20 @@ def team_pitcher_eval(
             "year": year,
         },
     )
+
+
+def pitcher_start_eval(
+    team_id: int | None = None,
+    league_id: int | None = None,
+    year: int | None = None,
+    tomorrow: bool = False,
+) -> dict:
+    return client.get(
+        "/pitchers/start-eval",
+        {
+            "team_id": team_id,
+            "league_id": league_id,
+            "year": year,
+            "tomorrow": tomorrow or None,
+        },
+    )

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from streamer_mcp.tools.hitter_tools import free_agent_hitters
-from streamer_mcp.tools.pitcher_tools import streamer_review, team_pitcher_eval
+from streamer_mcp.tools.pitcher_tools import pitcher_start_eval, streamer_review, team_pitcher_eval
 from streamer_mcp.tools.waiver_tools import recent_drops_waiver_review
 
 try:
@@ -78,6 +78,21 @@ def get_team_pitcher_evaluation(
         team_id=team_id,
         league_id=league_id,
         year=year,
+    )
+
+
+@mcp.tool(description="Get pitcher start recommendations for your roster, with streamer fallback when no probable starters are on your team.")
+def get_pitcher_start_evaluation(
+    team_id: int | None = None,
+    league_id: int | None = None,
+    year: int | None = None,
+    tomorrow: bool = False,
+) -> dict:
+    return pitcher_start_eval(
+        team_id=team_id,
+        league_id=league_id,
+        year=year,
+        tomorrow=tomorrow,
     )
 
 

@@ -23,3 +23,5 @@ python -m streamer_mcp.server
 - `get_recent_drops_waiver_review(days, trend_games, top, claim_mode, league_id, year)`
 - `get_free_agent_hitters(top, size, trend_games, trend_workers, league_id, year)`
 - `get_streaming_pitchers(pitcher, league_id, year)`
+- `get_team_pitcher_evaluation(team_id, league_id, year)`
+- `get_pitcher_start_evaluation(team_id, league_id, year, tomorrow)`

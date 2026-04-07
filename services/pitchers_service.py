@@ -13,6 +13,8 @@ from utils.names import normalize_name
 
 import statsapi
 
+_BENCH_SLOTS = {"BE", "IL", "IL10", "IL15", "IL60", "NA"}
+
 
 def _find_pitcher_match(
     query: str,
@@ -132,6 +134,31 @@ def _rank_to_score(rank: int | None, total: int) -> float:
     if rank is None or total <= 0:
         return 0.0
     return ((total - rank + 1) / total) * 100.0
+
+
+def _lineup_slot(player) -> str:
+    raw = getattr(player, "espn_raw", None)
+    slot = (
+        getattr(raw, "slot_position", None)
+        or getattr(raw, "slotPosition", None)
+        or getattr(raw, "lineupSlot", None)
+        or ""
+    )
+    return str(slot).upper()
+
+
+def _is_bench_slot(slot: str) -> bool:
+    return slot in _BENCH_SLOTS or not slot
+
+
+def _start_eval_sort_key(row: dict) -> tuple[float, int, float, str]:
+    rec = row.get("recommendation") or {}
+    return (
+        float(rec.get("score") or 0.0),
+        -int(row.get("streamer_rank") or 9999),
+        float(row.get("percent_owned") or 0.0),
+        str(row.get("name") or ""),
+    )
 
 
 def get_team_pitcher_evaluation(
@@ -290,3 +317,93 @@ def get_streaming_pitcher_review(
     payload["rows"] = rows
     payload["count"] = len(rows)
     return payload
+
+
+def get_pitcher_start_evaluation(
+    team_id: int | None = None,
+    league_id: int | None = None,
+    year: int | None = None,
+    for_date: date | None = None,
+) -> dict:
+    config = AppConfig(
+        league_id=league_id or AppConfig().league_id,
+        team_id=team_id or AppConfig().team_id,
+        year=year or AppConfig().year,
+    )
+    target_date = for_date or date.today()
+
+    context = build_context(config)
+    team = get_team(context, team_id=config.team_id or None)
+    roster_pitchers = get_roster_players(context, team_id=team.team_id, player_type="pitchers")
+
+    probable_starters = {normalize_name(name) for name in get_todays_probable_starters(for_date=target_date)}
+    streamer_url, streamer_ranks = scrape_sp_streamer_tiers()
+    streamer_positions = {name: idx for idx, name in enumerate(streamer_ranks.keys(), start=1)}
+    keeper_cost = scrape_espn_keeper_cost(context)
+
+    probable_rows: list[dict] = []
+    for player in roster_pitchers:
+        if player.normalized_name not in probable_starters:
+            continue
+        rank = streamer_ranks.get(player.normalized_name)
+        row = _serialize_pitcher_row(
+            player,
+            rank,
+            position_rank=streamer_positions.get(player.normalized_name),
+            keeper_cost=keeper_cost,
+        )
+        slot = _lineup_slot(player)
+        row["slot"] = slot or "N/A"
+        row["is_bench"] = _is_bench_slot(slot)
+        row["is_probable_today"] = True
+        probable_rows.append(row)
+
+    probable_rows_sorted = sorted(probable_rows, key=_start_eval_sort_key, reverse=True)
+    recommended_rows = probable_rows_sorted[:2]
+    recommended_keys = {row["normalized_name"] for row in recommended_rows}
+
+    bench_probable_rows = [row for row in probable_rows_sorted if row.get("is_bench")]
+    active_non_recommended = sorted(
+        [row for row in probable_rows if not row.get("is_bench") and row["normalized_name"] not in recommended_keys],
+        key=_start_eval_sort_key,
+    )
+
+    suggested_moves: list[str] = []
+    for start_row in [row for row in recommended_rows if row.get("is_bench")]:
+        if active_non_recommended:
+            sit_row = active_non_recommended.pop(0)
+            suggested_moves.append(f"START {start_row['name']} (bench) -> SIT {sit_row['name']} ({sit_row['slot']})")
+        else:
+            suggested_moves.append(f"START {start_row['name']} (bench) -> Move into an open SP/P slot")
+
+    response = {
+        "generated_on": target_date.isoformat(),
+        "league": context.league.settings.name,
+        "team": getattr(team, "team_name", None),
+        "source_url": streamer_url,
+        "roster_pitcher_count": len(roster_pitchers),
+        "probable_roster_count": len(probable_rows),
+        "fallback_to_streamers": False,
+        "recommended_count": len(recommended_rows),
+        "recommended_rows": recommended_rows,
+        "bench_probable_rows": bench_probable_rows,
+        "suggested_moves": suggested_moves,
+        "streamer_fallback_rows": None,
+    }
+
+    if probable_rows:
+        return response
+
+    streamers = get_streaming_pitcher_review(
+        league_id=config.league_id,
+        year=config.year,
+        for_date=target_date,
+    )
+    fallback_rows = (streamers.get("rows") or [])[:2]
+    response["fallback_to_streamers"] = True
+    response["recommended_count"] = len(fallback_rows)
+    response["recommended_rows"] = []
+    response["bench_probable_rows"] = []
+    response["suggested_moves"] = []
+    response["streamer_fallback_rows"] = fallback_rows
+    return response

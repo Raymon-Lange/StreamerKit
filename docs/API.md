@@ -76,6 +76,21 @@ Behavior:
   - Strikeout rank (higher better)
   - Keeper-cost rank using projected keeper pick from draft history (lower better)
 
+### GET `/pitchers/start-eval`
+Daily pitcher start evaluation for your roster.
+
+Parameters:
+- `team_id` (optional override)
+- `league_id` (optional override)
+- `year` (optional override)
+- `tomorrow` (default `false`)
+
+Behavior:
+- Evaluates roster pitchers who are probable starters for the selected date.
+- Recommends the top 2 pitchers to start using streaming-tier recommendation scores.
+- Includes bench probable starters and suggested bench-to-active moves.
+- If no roster probable starters are found, falls back to top streaming pitchers for that same date.
+
 ## Run Locally
 
 ```bash
