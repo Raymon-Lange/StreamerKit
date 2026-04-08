@@ -38,18 +38,29 @@ def ask_text(prompt: str, default: str | None = None) -> str | None:
 # ── menu ──────────────────────────────────────────────────────────────────────
 
 MENU = """
-┌──────────────────────────────┐
-│        Baseball Tools        │
-├──────────────────────────────┤
-│  1) Streaming Pitchers       │
-│  2) Free Agent Hitters       │
-│  3) Team Hitters             │
-│  4) Team Pitchers            │
-│  5) Waiver Pickup Review     │
-│  6) Roster Optimizer         │
-│  7) Pitcher Start Eval       │
-│  8) Exit                     │
-└──────────────────────────────┘"""
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                               BASEBALL TOOLKIT                               │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ Workflow lane: Morning lineup prep                                           │
+│ Recommended order: 5 Waiver Review -> 2 Free Agent Hitters -> 6 Optimizer    │
+│ Active defaults: team_id=config, trend=10, top=10                            │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌───────────────────────────────── ACTION BOARD ───────────────────────────────┐
+│ [DISCOVER]                                                                   │
+│  1  Streaming Pitchers     Best for: daily streamers                         │
+│  2  Free Agent Hitters     Best for: replacement bats                        │
+│  5  Waiver Pickup Review   Best for: recent dropped value                    │
+│                                                                              │
+│ [AUDIT + DECIDE]                                                             │
+│  3  Team Hitters           Best for: lineup performance check                │
+│  4  Team Pitchers          Best for: staff health check                      │
+│  6  Roster Optimizer       Best for: clear add/drop recommendations          │
+│  7  Pitcher Start Eval     Best for: start/sit confidence                    │
+│                                                                              │
+│ [SYSTEM]                                                                     │
+│  8  Exit                                                                     │
+└──────────────────────────────────────────────────────────────────────────────┘"""
 
 
 def _run_streaming_pitchers() -> None:
@@ -122,7 +133,7 @@ HANDLERS: dict[str, tuple[str, object]] = {
 def main() -> None:
     while True:
         print(MENU)
-        choice = input("Select an option: ").strip()
+        choice = input("Choose tool: ").strip()
 
         if choice not in HANDLERS:
             print(f"\n  Invalid choice {choice!r}. Enter 1–8.\n")
