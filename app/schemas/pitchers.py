@@ -99,4 +99,5 @@ class PitcherStartEvalResponse(BaseModel):
     recommended_rows: list[PitcherStartEvalRow]
     bench_probable_rows: list[PitcherStartEvalRow]
     suggested_moves: list[str]
+    selected_streamer_row: PitcherReviewRow | None = None
     streamer_fallback_rows: list[PitcherReviewRow] | None = None

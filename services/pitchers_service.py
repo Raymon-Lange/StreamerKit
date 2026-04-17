@@ -161,6 +161,20 @@ def _start_eval_sort_key(row: dict) -> tuple[float, int, float, str]:
     )
 
 
+def _streamer_rank_sort_key(row: dict) -> tuple[int, float, str]:
+    return (
+        int(row.get("streamer_rank") or 9999),
+        -float(row.get("recommendation", {}).get("score") or 0.0),
+        str(row.get("name") or ""),
+    )
+
+
+def _select_top_streamer(rows: list[dict]) -> dict | None:
+    if not rows:
+        return None
+    return min(rows, key=_streamer_rank_sort_key)
+
+
 def get_team_pitcher_evaluation(
     league_id: int | None = None,
     team_id: int | None = None,
@@ -388,18 +402,23 @@ def get_pitcher_start_evaluation(
         "recommended_rows": recommended_rows,
         "bench_probable_rows": bench_probable_rows,
         "suggested_moves": suggested_moves,
+        "selected_streamer_row": None,
         "streamer_fallback_rows": None,
     }
-
-    if probable_rows:
-        return response
 
     streamers = get_streaming_pitcher_review(
         league_id=config.league_id,
         year=config.year,
         for_date=target_date,
     )
-    fallback_rows = (streamers.get("rows") or [])[:2]
+    streamer_rows = streamers.get("rows") or []
+    sorted_streamer_rows = sorted(streamer_rows, key=_streamer_rank_sort_key)
+    response["selected_streamer_row"] = _select_top_streamer(sorted_streamer_rows)
+
+    if probable_rows:
+        return response
+
+    fallback_rows = sorted_streamer_rows[:2]
     response["fallback_to_streamers"] = True
     response["recommended_count"] = len(fallback_rows)
     response["recommended_rows"] = []
