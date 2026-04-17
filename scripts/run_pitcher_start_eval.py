@@ -62,6 +62,20 @@ def run(args) -> None:
                 f"   {recommendation.get('action') or 'CONSIDER'} — "
                 f"{recommendation.get('reason') or 'No recommendation detail available'}"
             )
+        selected_streamer = result.get("selected_streamer_row")
+        if selected_streamer:
+            tier = selected_streamer.get("tier") or "Not Ranked"
+            tier_emoji = TIER_EMOJI.get(tier, "⚪")
+            owned = (
+                f"{selected_streamer['percent_owned']:.1f}%"
+                if selected_streamer.get("percent_owned") is not None
+                else "N/A"
+            )
+            rank_text = f"#{selected_streamer['streamer_rank']}" if selected_streamer.get("streamer_rank") else "NR"
+            print(
+                f"\nTop streamer pick: {tier_emoji} {selected_streamer['name']} | "
+                f"{selected_streamer.get('mlb_team') or 'N/A'} | Streamer: {rank_text} | Owned: {owned}"
+            )
         return
 
     print("Top 2 pitchers to start today:")
@@ -94,6 +108,21 @@ def run(args) -> None:
             print(f"{idx}. {move}")
     else:
         print("\nNo bench-to-active SP move needed based on today's probable starts and streamer ranks.")
+
+    selected_streamer = result.get("selected_streamer_row")
+    if selected_streamer:
+        tier = selected_streamer.get("tier") or "Not Ranked"
+        tier_emoji = TIER_EMOJI.get(tier, "⚪")
+        owned = (
+            f"{selected_streamer['percent_owned']:.1f}%"
+            if selected_streamer.get("percent_owned") is not None
+            else "N/A"
+        )
+        rank_text = f"#{selected_streamer['streamer_rank']}" if selected_streamer.get("streamer_rank") else "NR"
+        print(
+            f"\nTop streamer pick: {tier_emoji} {selected_streamer['name']} | "
+            f"{selected_streamer.get('mlb_team') or 'N/A'} | Streamer: {rank_text} | Owned: {owned}"
+        )
 
 
 def parse_args() -> argparse.Namespace:
