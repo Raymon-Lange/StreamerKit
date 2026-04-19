@@ -9,6 +9,7 @@ from models.player import TrendSummary
 
 CURRENT_YEAR = date.today().year
 _TEAM_ABBR_CACHE: dict[int, str] = {}
+_TEAM_NAME_CACHE: dict[int, str] = {}
 
 
 def _team_abbreviation(team_obj: dict | None) -> str:
@@ -40,6 +41,36 @@ def _team_abbreviation(team_obj: dict | None) -> str:
     except Exception:
         pass
     return "???"
+
+
+def _team_name(team_obj: dict | None) -> str:
+    if not team_obj:
+        return "Unknown Team"
+
+    for key in ("name", "teamName"):
+        value = team_obj.get(key)
+        if value:
+            return str(value)
+
+    team_id = team_obj.get("id")
+    if not team_id:
+        return _team_abbreviation(team_obj)
+    if team_id in _TEAM_NAME_CACHE:
+        return _TEAM_NAME_CACHE[team_id]
+
+    try:
+        data = statsapi.get("teams", {"sportId": 1, "teamId": team_id})
+        teams = data.get("teams", [])
+        if teams:
+            full = teams[0]
+            name = full.get("name")
+            if name:
+                team_name = str(name)
+                _TEAM_NAME_CACHE[team_id] = team_name
+                return team_name
+    except Exception:
+        pass
+    return _team_abbreviation(team_obj)
 
 
 def get_player_id(name: str, prefer_pitcher: bool = False) -> int | None:
@@ -174,8 +205,9 @@ def get_pitcher_stats(name: str):
     last_two = []
     for game in game_log[:2]:
         stat = game.get("stat", {})
-        opp = _team_abbreviation(game.get("opponent"))
-        matchup = f"vs {opp}" if game.get("isHome", True) else f"@ {opp}"
+        opponent = game.get("opponent")
+        opp_name = _team_name(opponent)
+        matchup = f"vs {opp_name}" if game.get("isHome", True) else f"@ {opp_name}"
         result = "W" if stat.get("wins", 0) else "L" if stat.get("losses", 0) else "ND"
         last_two.append({
             "date": game.get("date", "N/A"),
