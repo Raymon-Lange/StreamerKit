@@ -145,7 +145,8 @@ def _render_menu(weekly_line: str) -> str:
             "│  7  Pitcher Start Eval     Best for: start/sit confidence                    │",
             "│                                                                              │",
             "│ [SYSTEM]                                                                     │",
-            "│  8  Exit                                                                     │",
+            "│  8  Ranking Page Sources  Best for: verify ranking page URL/date refresh    │",
+            "│  9  Exit                                                                     │",
             "└──────────────────────────────────────────────────────────────────────────────┘",
         ]
     )
@@ -206,6 +207,13 @@ def _run_waiver_pickup_review() -> None:
     run(types.SimpleNamespace(days=days, top=top, trend_games=trend, claim_mode=claim_mode))
 
 
+def _run_ranking_page_sources() -> None:
+    from scripts.show_ranking_page_sources import run
+
+    show_missing = ask_bool("Show missing/unreadable cache files?", default=False)
+    run(show_missing=show_missing)
+
+
 HANDLERS: dict[str, tuple[str, object]] = {
     "1": ("Streaming Pitchers", _run_streaming_pitchers),
     "2": ("Free Agent Hitters", _run_free_agent_hitters),
@@ -214,7 +222,8 @@ HANDLERS: dict[str, tuple[str, object]] = {
     "5": ("Waiver Pickup Review", _run_waiver_pickup_review),
     "6": ("Roster Optimizer", _run_roster_optimizer),
     "7": ("Pitcher Start Eval", _run_pitcher_start_eval),
-    "8": ("Exit", None),
+    "8": ("Ranking Page Sources", _run_ranking_page_sources),
+    "9": ("Exit", None),
 }
 
 
@@ -225,7 +234,7 @@ def main() -> None:
         choice = input("Choose tool: ").strip()
 
         if choice not in HANDLERS:
-            print(f"\n  Invalid choice {choice!r}. Enter 1–8.\n")
+            print(f"\n  Invalid choice {choice!r}. Enter 1–9.\n")
             continue
 
         label, handler = HANDLERS[choice]
