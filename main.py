@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import json
 import sys
 import types
 import statistics
+from datetime import datetime
+from pathlib import Path
 
 
 # ── input helpers ─────────────────────────────────────────────────────────────
@@ -80,6 +83,38 @@ def _resolve_latest_scored_period(league) -> int:
     return latest
 
 
+def _weekly_score_cache_path(league_id: int, team_id: int) -> Path:
+    return Path(__file__).resolve().parent / ".cache" / f"weekly_score_{league_id}_{team_id}.json"
+
+
+def _load_weekly_score_cache(league_id: int, team_id: int) -> str | None:
+    path = _weekly_score_cache_path(league_id=league_id, team_id=team_id)
+    if not path.exists():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    cache_date = payload.get("date")
+    line = payload.get("line")
+    if cache_date != datetime.now().date().isoformat():
+        return None
+    if not line or not isinstance(line, str):
+        return None
+    return line
+
+
+def _save_weekly_score_cache(league_id: int, team_id: int, line: str) -> None:
+    path = _weekly_score_cache_path(league_id=league_id, team_id=team_id)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "date": datetime.now().date().isoformat(),
+        "updated_at": datetime.now().isoformat(),
+        "line": line,
+    }
+    path.write_text(json.dumps(payload, ensure_ascii=True, indent=2), encoding="utf-8")
+
+
 def _weekly_header_line() -> str:
     try:
         from collectors.espn import build_context
@@ -88,6 +123,10 @@ def _weekly_header_line() -> str:
         cfg = AppConfig()
         if not cfg.league_id or not cfg.team_id:
             return "Weekly Score: set LEAGUE_ID and TEAM_ID in .env"
+
+        cached = _load_weekly_score_cache(league_id=cfg.league_id, team_id=cfg.team_id)
+        if cached:
+            return cached
 
         context = build_context(cfg)
         league = context.league
@@ -112,10 +151,12 @@ def _weekly_header_line() -> str:
         team_name, team_score, _ = rows[team_idx - 1]
         half_label = "TOP" if team_idx <= top_half_cutoff else "BTM"
         short_name = team_name[:26]
-        return (
+        line = (
             f"Weekly: {short_name} {team_score:.1f} | "
             f"Rank {team_idx}/{len(rows)} {half_label} | Med {median_score:.1f} | Wk {period}"
         )
+        _save_weekly_score_cache(league_id=cfg.league_id, team_id=cfg.team_id, line=line)
+        return line
     except Exception as exc:
         return f"Weekly Score: unavailable ({exc})"
 
