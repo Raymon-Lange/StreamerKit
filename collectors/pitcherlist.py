@@ -13,7 +13,7 @@ from models.player import RankingEntry
 from utils.names import clean_player_name, normalize_name
 
 TOP_300_HITTERS_URL = "https://pitcherlist.com/top-300-hitters-for-fantasy-baseball-2026/"
-TOP_400_DYNASTY_URL = "https://pitcherlist.com/2026-top-400-dynasty-rankings/"
+TOP_400_DYNASTY_URL = "https://pitcherlist.com/2026-top-400-dynasty-rankings-v1-0/"
 SP_STREAMERS_CATEGORY_URL = "https://pitcherlist.com/category/fantasy/starting-pitchers/sp-streamers/"
 
 TIER_ORDER = ["Auto-Start", "Probably Start", "Questionable Start", "Do Not Start"]
