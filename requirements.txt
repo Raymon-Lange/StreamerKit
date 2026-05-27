@@ -3,6 +3,3 @@ requests
 beautifulsoup4
 MLB-StatsAPI
 python-dotenv
-fastapi
-uvicorn[standard]
-fastmcp

@@ -7,6 +7,7 @@ This repository evaluates ESPN fantasy baseball rosters and waiver options by co
 - `collectors/` fetch and normalize data.
 - `engines/` convert normalized inputs into recommendations.
 - `models/` define shared dataclasses.
+- `services/` coordinate collectors and engines for reusable workflows.
 - `scripts/` are thin CLI entry points.
 - `main.py` provides a menu over the main scripts.
 
@@ -139,54 +140,6 @@ Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
-
-## API server
-
-FastAPI app entrypoint: `app/main.py`
-
-Run locally:
-
-```bash
-uvicorn app.main:app --reload
-```
-
-OpenAPI docs:
-
-- `/docs`
-- `/redoc`
-- `/openapi.json`
-
-See `docs/API.md` for endpoint and parameter details.
-
-### Docker dev workflow
-
-Files:
-
-- `Dockerfile`
-- `docker-compose.yml`
-- `tools/dev_up.sh`
-- `tools/dev_down.sh`
-- `tools/dev_logs.sh`
-
-Commands:
-
-```bash
-tools/dev_up.sh
-tools/dev_logs.sh
-tools/dev_down.sh
-```
-
-## MCP connector
-
-MCP server entrypoint: `streamer_mcp/server.py`
-
-Run:
-
-```bash
-python -m streamer_mcp.server
-```
-
-See `docs/MCP.md` for setup and tool details.
 
 ## Run
 
