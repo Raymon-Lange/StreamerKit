@@ -41,9 +41,16 @@ def ask_text(prompt: str, default: str | None = None) -> str | None:
 
 # ── menu ──────────────────────────────────────────────────────────────────────
 
-def _menu_line(text: str, width: int = 78) -> str:
+def _menu_line(text: str, width: int = 78, align: str = "left") -> str:
+    # Keep every rendered row exactly the same width so borders stay aligned.
     trimmed = text[:width]
-    return f"│ {trimmed:<{width}} │"
+    if align == "center":
+        body = trimmed.center(width)
+    elif align == "right":
+        body = trimmed.rjust(width)
+    else:
+        body = trimmed.ljust(width)
+    return f"│ {body} │"
 
 
 def _matchup_score(matchup, side: str) -> float:
@@ -162,33 +169,43 @@ def _weekly_header_line() -> str:
 
 
 def _render_menu(weekly_line: str) -> str:
+    full_dash_width = 80  # 78 content + 1 space padding on each side.
+    top_border = "┌" + ("─" * full_dash_width) + "┐"
+    mid_border = "├" + ("─" * full_dash_width) + "┤"
+    bottom_border = "└" + ("─" * full_dash_width) + "┘"
+
+    title = " ACTION BOARD "
+    title_left = (full_dash_width - len(title)) // 2
+    title_right = full_dash_width - len(title) - title_left
+    action_top_border = "┌" + ("─" * title_left) + title + ("─" * title_right) + "┐"
+
     return "\n".join(
         [
-            "┌──────────────────────────────────────────────────────────────────────────────┐",
-            _menu_line("BASEBALL TOOLKIT".center(78)),
-            "├──────────────────────────────────────────────────────────────────────────────┤",
+            top_border,
+            _menu_line("BASEBALL TOOLKIT", align="center"),
+            mid_border,
             _menu_line("Workflow lane: Morning lineup prep"),
             _menu_line("Recommended order: 5 Waiver Review -> 2 Free Agent Hitters -> 6 Optimizer"),
             _menu_line("Active defaults: team_id=config, trend=10, top=10"),
             _menu_line(weekly_line),
-            "└──────────────────────────────────────────────────────────────────────────────┘",
+            bottom_border,
             "",
-            "┌───────────────────────────────── ACTION BOARD ───────────────────────────────┐",
-            "│ [DISCOVER]                                                                   │",
-            "│  1  Streaming Pitchers     Best for: daily streamers                         │",
-            "│  2  Free Agent Hitters     Best for: replacement bats                        │",
-            "│  5  Waiver Pickup Review   Best for: recent dropped value                    │",
-            "│                                                                              │",
-            "│ [AUDIT + DECIDE]                                                             │",
-            "│  3  Team Hitters           Best for: lineup performance check                │",
-            "│  4  Team Pitchers          Best for: staff health check                      │",
-            "│  6  Roster Optimizer       Best for: clear add/drop recommendations          │",
-            "│  7  Pitcher Start Eval     Best for: start/sit confidence                    │",
-            "│                                                                              │",
-            "│ [SYSTEM]                                                                     │",
-            "│  8  Ranking Page Sources  Best for: verify ranking page URL/date refresh    │",
-            "│  9  Exit                                                                     │",
-            "└──────────────────────────────────────────────────────────────────────────────┘",
+            action_top_border,
+            _menu_line("[DISCOVER]"),
+            _menu_line(" 1  Streaming Pitchers     Best for: daily streamers"),
+            _menu_line(" 2  Free Agent Hitters     Best for: replacement bats"),
+            _menu_line(" 5  Waiver Pickup Review   Best for: recent dropped value"),
+            _menu_line(""),
+            _menu_line("[AUDIT + DECIDE]"),
+            _menu_line(" 3  Team Hitters           Best for: lineup performance check"),
+            _menu_line(" 4  Team Pitchers          Best for: staff health check"),
+            _menu_line(" 6  Roster Optimizer       Best for: clear add/drop recommendations"),
+            _menu_line(" 7  Pitcher Start Eval     Best for: start/sit confidence"),
+            _menu_line(""),
+            _menu_line("[SYSTEM]"),
+            _menu_line(" 8  Ranking Page Sources   Best for: verify ranking page URL/date refresh"),
+            _menu_line(" 9  Exit"),
+            bottom_border,
         ]
     )
 
