@@ -73,22 +73,38 @@ All cross-source player joins should use `utils/names.py`.
 3. Evaluates hitter drops with redraft/dynasty/trend signals and pitcher drops with streamer-tier signal.
 4. Filters out non-actionable results (`PASS`, `SKIP`, and pitcher `Not Ranked`) and prints claim-focused targets.
 
-### SP streamers performance baseline (no cache)
+### Roster optimizer
 
-Baseline profile captured on March 31, 2026 with:
+`scripts/run_roster_optimizer.py`:
 
-```bash
-python3 -m cProfile -s cumtime scripts/run_sp_streamers.py
-```
+1. Connects to ESPN and reads your active roster hitters and bench hitters.
+2. Pulls Pitcher List redraft rankings and recent MLB trend stats.
+3. Scores each hitter and identifies bench players who should start over active players.
+4. Prints recommended lineup swaps with score gap and reasoning; skips if lineup is already optimal.
 
-Result was ~27.2s total runtime (no explicit caching in this script path). Main hotspots:
+### Pitcher start eval
 
-1. `collectors.espn.build_context` / ESPN league+roster load: ~13.5s
-2. HTTP stack (`requests`/`urllib3` network I/O): ~8.6s across 35 calls
-3. `collectors.mlb_stats.get_pitcher_stats` in per-pitcher loop: ~6.2s total
-4. `collectors.espn.get_free_agent_pitchers`: ~3.8s
+`scripts/run_pitcher_start_eval.py`:
 
-Interpretation: runtime is mostly external API/network and ESPN parsing overhead, not local computation.
+1. Identifies your roster pitchers scheduled to start today (or tomorrow).
+2. Pulls Pitcher List SP streamer tiers and maps roster starters to streamer ranks.
+3. Recommends the top 2 starters to deploy.
+4. Falls back to free-agent streaming options when no roster pitcher has a probable start.
+
+### Weekly scores
+
+`scripts/run_weekly_scores.py`:
+
+1. Connects to ESPN and fetches the current (or specified) matchup period scoreboard.
+2. Ranks all league teams by score and highlights your team's position.
+3. Prints mean and median scores alongside top-half / bottom-half split.
+4. Use `--latest-scored` to report the most recently completed period instead of the current week.
+
+### Ranking page sources
+
+`scripts/show_ranking_page_sources.py`:
+
+Reads each ranking cache file and prints its source URL, fetch timestamp, and article date. Useful for verifying that cached rankings are current. Pass `--show-missing` to also flag cache files that are absent or unreadable.
 
 ## Hitter scoring weights
 
@@ -150,4 +166,8 @@ python scripts/run_team_pitcher_eval.py --team-id 1
 python scripts/run_free_agent_hitters.py --top 10 --size 75 --trend-games 15
 python scripts/run_sp_streamers.py
 python scripts/run_recent_drops_waiver_review.py --days 2 --top 25
+python scripts/run_roster_optimizer.py --team-id 1 --trend-games 10 --min-gap 10
+python scripts/run_pitcher_start_eval.py --team-id 1
+python scripts/run_weekly_scores.py --latest-scored
+python scripts/show_ranking_page_sources.py --show-missing
 ```
