@@ -157,6 +157,15 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 
+## Dev server
+
+```bash
+docker compose -f docker-compose.dev.yml up
+```
+
+- API: http://localhost:9471
+- Web: http://localhost:9472
+
 ## Run
 
 ```bash
