@@ -149,7 +149,16 @@ LEAGUE_ID=your_league_id
 TEAM_ID=your_team_id
 ESPN_S2=your_espn_s2_cookie
 ESPN_SWID={your-swid-cookie}
+API_KEY=your_api_key
 ```
+
+Generate an `API_KEY`:
+
+```bash
+python3 -c "import secrets; print(secrets.token_hex(32))"
+```
+
+Paste the output as the `API_KEY` value. This key is required for all `/api/*` requests — pass it as the `X-API-Key` header.
 
 Install dependencies:
 
@@ -165,6 +174,8 @@ docker compose -f docker-compose.dev.yml up
 
 - API: http://localhost:9471
 - Web: http://localhost:9472
+
+The dev compose maps `API_KEY` from `.env` to `VITE_API_KEY` automatically — no extra config needed.
 
 ## Run
 
