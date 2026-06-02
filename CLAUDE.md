@@ -43,3 +43,9 @@ They are loaded through `python-dotenv` from `.env`.
 - Keep engines free of HTTP requests and ESPN access.
 - Prefer `PlayerRecord`, `RankingEntry`, `TrendSummary`, and `Recommendation` over ad hoc dicts.
 - Reuse `normalize_name()` from `utils/names.py` for all joins across sources.
+
+<!-- SPECKIT START -->
+For additional context about technologies to be used, project structure,
+shell commands, and other important information, read the current plan
+at `specs/001-tomorrow-sp-streamer-card/plan.md`.
+<!-- SPECKIT END -->
