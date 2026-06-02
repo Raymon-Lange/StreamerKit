@@ -21,25 +21,26 @@ const tierColor: Record<string, string> = {
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
-function todayLabel() {
+function tomorrowLabel() {
   const d = new Date()
+  d.setDate(d.getDate() + 1)
   return `${DAYS[d.getDay()]} ${d.getDate()}`
 }
 
-export default function Streamers() {
+export default function TomorrowStreamers() {
   const [rows, setRows] = useState<StreamerRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    api.streamers()
+    api.streamers(true)
       .then(d => setRows(((d as { rows: StreamerRow[] }).rows ?? []).slice(0, 8)))
       .catch(e => setError(String(e)))
       .finally(() => setLoading(false))
   }, [])
 
   return (
-    <Card title={`SP Streamers · ${todayLabel()}`} loading={loading} error={error}>
+    <Card title={`Tomorrow's SP Streamers · ${tomorrowLabel()}`} loading={loading} error={error}>
       <div className="flex flex-col divide-y divide-gray-800">
         {rows.map(r => (
           <div key={r.name} className="py-2 flex items-start justify-between gap-2">
@@ -54,7 +55,7 @@ export default function Streamers() {
             </div>
           </div>
         ))}
-        {rows.length === 0 && <p className="text-gray-500 text-sm">No streamers today.</p>}
+        {rows.length === 0 && !loading && !error && <p className="text-gray-500 text-sm">No streamers tomorrow.</p>}
       </div>
     </Card>
   )

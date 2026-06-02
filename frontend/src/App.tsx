@@ -1,5 +1,6 @@
 import DailyBrief from './components/DailyBrief'
 import Streamers from './components/Streamers'
+import TomorrowStreamers from './components/TomorrowStreamers'
 import RecentDrops from './components/RecentDrops'
 import Optimizer from './components/Optimizer'
 import WeeklyScores from './components/WeeklyScores'
@@ -16,6 +17,7 @@ export default function App() {
       <main className="max-w-6xl mx-auto px-4 py-6 grid grid-cols-1 md:grid-cols-2 gap-4">
         <DailyBrief />
         <Streamers />
+        <TomorrowStreamers />
         <RecentDrops />
         <Optimizer />
         <WeeklyScores />
