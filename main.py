@@ -220,7 +220,7 @@ def _run_streaming_pitchers() -> None:
 def _run_free_agent_hitters() -> None:
     from scripts.run_free_agent_hitters import run
     top = ask_int("Top N hitters to show", default=10)
-    size = ask_int("Free agent scan size (per position)", default=75)
+    size = ask_int("Free agent scan size (per position)", default=10)
     trend = ask_int("Trend games to look back", default=15)
     run(types.SimpleNamespace(top=top, size=size, trend_games=trend))
 
@@ -256,7 +256,7 @@ def _run_pitcher_start_eval() -> None:
 def _run_waiver_pickup_review() -> None:
     from scripts.run_recent_drops_waiver_review import run
     days = ask_int("Look back how many days", default=2)
-    top = ask_int("Top N targets to show", default=25)
+    top = ask_int("Top N targets to show", default=5)
     trend = ask_int("Trend games to look back", default=10)
     claim_mode = (ask_text("Claim mode (all or wins)", default="all") or "all").strip().lower()
     if claim_mode not in {"all", "wins"}:

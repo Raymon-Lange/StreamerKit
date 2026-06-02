@@ -13,7 +13,7 @@ _TTL = 300
 @router.get("/recent-drops")
 async def recent_drops(
     days: int = Query(default=2, ge=1, description="Lookback window in days"),
-    top: int = Query(default=25, ge=1, description="Max results to return"),
+    top: int = Query(default=5, ge=1, description="Max results to return"),
     trend_games: int = Query(default=10, ge=1, description="Games to include in trend"),
     claim_mode: str = Query(default="all", pattern="^(all|wins)$", description="all or wins"),
 ) -> dict:
