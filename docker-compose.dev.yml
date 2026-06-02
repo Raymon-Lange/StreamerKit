@@ -8,6 +8,9 @@ services:
     volumes:
       - .:/app
       - /app/frontend
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     restart: unless-stopped
 
   web:
