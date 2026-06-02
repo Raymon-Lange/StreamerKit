@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from collectors.espn import EspnContext
+from utils.feed_logger import log_feed_fetch
 from utils.names import normalize_name
 
 
@@ -135,9 +136,12 @@ def scrape_espn_keeper_cost(context: EspnContext, force_refresh: bool = False) -
     path = _cache_path(league_id=league_id, year=year)
 
     cached = _load_cache(path)
-    if cached and not force_refresh:
-        return _deserialize_rows(cached.get("rows", []))
 
-    built = _build_from_league(context)
-    _save_cache(path, league_id=league_id, year=year, rows=built)
-    return built
+    with log_feed_fetch("espn_keeper_cost", "scrape_espn_keeper_cost") as feed_log:
+        if cached and not force_refresh:
+            feed_log.mark_cache_fallback()
+            return _deserialize_rows(cached.get("rows", []))
+
+        built = _build_from_league(context)
+        _save_cache(path, league_id=league_id, year=year, rows=built)
+        return built

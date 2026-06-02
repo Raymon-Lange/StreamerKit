@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 from models.player import PlayerRecord
 from utils.config import AppConfig
+from utils.feed_logger import log_feed_fetch
 from utils.names import normalize_name
 
 HITTER_POSITIONS = {"C", "1B", "2B", "3B", "SS", "LF", "CF", "RF", "OF", "DH", "UTIL"}
@@ -31,12 +32,13 @@ def get_league(config: AppConfig):
         sys.exit("[error] ESPN credentials missing. Set ESPN_S2 and ESPN_SWID environment variables.")
 
     try:
-        return League(
-            league_id=config.league_id,
-            year=config.year,
-            espn_s2=config.espn_s2,
-            swid=config.espn_swid,
-        )
+        with log_feed_fetch("espn", "get_league"):
+            return League(
+                league_id=config.league_id,
+                year=config.year,
+                espn_s2=config.espn_s2,
+                swid=config.espn_swid,
+            )
     except Exception as exc:
         sys.exit(f"[error] Could not connect to ESPN: {exc}")
 

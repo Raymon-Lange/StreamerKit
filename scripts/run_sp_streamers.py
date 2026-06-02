@@ -11,97 +11,99 @@ if __package__ in {None, ""}:
 from engines.pitcher_engine import TIER_EMOJI, streamer_recommendation
 from services.pitchers_service import get_streaming_pitcher_review
 from utils.config import AppConfig
+from utils.feed_logger import log_script_run
 
 
 def run(args) -> None:
-    for_date = date.today() + timedelta(days=1) if getattr(args, "tomorrow", False) else None
-    result = get_streaming_pitcher_review(
-        league_id=getattr(args, "league_id", None),
-        year=getattr(args, "year", None),
-        pitcher=getattr(args, "pitcher", None),
-        for_date=for_date,
-    )
+    with log_script_run("run_sp_streamers.py"):
+        for_date = date.today() + timedelta(days=1) if getattr(args, "tomorrow", False) else None
+        result = get_streaming_pitcher_review(
+            league_id=getattr(args, "league_id", None),
+            year=getattr(args, "year", None),
+            pitcher=getattr(args, "pitcher", None),
+            for_date=for_date,
+        )
 
-    display_date = for_date or date.today()
-    divider = "─" * 96
-    print(divider)
-    print(f"📅  {display_date.strftime('%A, %B %d, %Y')}")
-    print(f"🏟   League: {result['league']}")
-    print(f"Source: {result['source_url']}")
-    print(divider)
+        display_date = for_date or date.today()
+        divider = "─" * 96
+        print(divider)
+        print(f"📅  {display_date.strftime('%A, %B %d, %Y')}")
+        print(f"🏟   League: {result['league']}")
+        print(f"Source: {result['source_url']}")
+        print(divider)
 
-    if getattr(args, "pitcher", None):
-        if not result.get("found"):
-            print(f"No pitcher match found for: {result.get('query')}")
-            suggestions = result.get("suggestions", [])
-            if suggestions:
-                print("Did you mean:")
-                for name in suggestions:
-                    print(f"  - {name}")
+        if getattr(args, "pitcher", None):
+            if not result.get("found"):
+                print(f"No pitcher match found for: {result.get('query')}")
+                suggestions = result.get("suggestions", [])
+                if suggestions:
+                    print("Did you mean:")
+                    for name in suggestions:
+                        print(f"  - {name}")
+                return
+            row = result["row"]
+            tier = row["tier"]
+            owned = f"{row['percent_owned']:.1f}%" if row["percent_owned"] is not None else "N/A"
+            rank_text = f"#{row['streamer_rank']}" if row.get("streamer_rank") else "N/A"
+            print(f"{TIER_EMOJI.get(tier, '⚪')} {row['name']} | {row['mlb_team'] or 'N/A'} | Owned: {owned}")
+            print(f"  Streamer Rank: {rank_text}")
+            print(f"  Tier: {tier}")
+            if row.get("opponent_score"):
+                opp_team = row.get("opponent_team") or "N/A"
+                print(f"  Opponent Score: {row['opponent_score']} ({opp_team})")
+            if row.get("keeper_projected_round") is not None:
+                drafted_round = row.get("keeper_drafted_round")
+                drafted_round_pick = row.get("keeper_drafted_round_pick")
+                draft_slot = f"{drafted_round}.{drafted_round_pick}" if drafted_round_pick else str(drafted_round)
+                print(
+                    f"  Keeper Cost: Drafted R{draft_slot} -> Keep in R{row['keeper_projected_round']}"
+                    f" (Overall {row.get('keeper_projected_pick') or 'NR'})"
+                )
+            else:
+                print("  Keeper Cost: NR")
+            print(f"  Recommendation: {row['recommendation']['action']}")
+            print(f"  Season: {row['season_record']} | Last 10: {row['last_ten_record']}")
+            if row["last_two_starts"]:
+                for start in row["last_two_starts"]:
+                    print(
+                        f"  {start['date']} {start['matchup']} {start['result']} | "
+                        f"IP {start['ip']} H {start['h']} R {start['r']} ER {start['er']} "
+                        f"BB {start['bb']} K {start['k']} ERA {start['era']}"
+                    )
+            else:
+                print("  No starts on record yet this season.")
             return
-        row = result["row"]
-        tier = row["tier"]
-        owned = f"{row['percent_owned']:.1f}%" if row["percent_owned"] is not None else "N/A"
-        rank_text = f"#{row['streamer_rank']}" if row.get("streamer_rank") else "N/A"
-        print(f"{TIER_EMOJI.get(tier, '⚪')} {row['name']} | {row['mlb_team'] or 'N/A'} | Owned: {owned}")
-        print(f"  Streamer Rank: {rank_text}")
-        print(f"  Tier: {tier}")
-        if row.get("opponent_score"):
-            opp_team = row.get("opponent_team") or "N/A"
-            print(f"  Opponent Score: {row['opponent_score']} ({opp_team})")
-        if row.get("keeper_projected_round") is not None:
-            drafted_round = row.get("keeper_drafted_round")
-            drafted_round_pick = row.get("keeper_drafted_round_pick")
-            draft_slot = f"{drafted_round}.{drafted_round_pick}" if drafted_round_pick else str(drafted_round)
-            print(
-                f"  Keeper Cost: Drafted R{draft_slot} -> Keep in R{row['keeper_projected_round']}"
-                f" (Overall {row.get('keeper_projected_pick') or 'NR'})"
-            )
-        else:
-            print("  Keeper Cost: NR")
-        print(f"  Recommendation: {row['recommendation']['action']}")
-        print(f"  Season: {row['season_record']} | Last 10: {row['last_ten_record']}")
-        if row["last_two_starts"]:
-            for start in row["last_two_starts"]:
-                print(
-                    f"  {start['date']} {start['matchup']} {start['result']} | "
-                    f"IP {start['ip']} H {start['h']} R {start['r']} ER {start['er']} "
-                    f"BB {start['bb']} K {start['k']} ERA {start['era']}"
-                )
-        else:
-            print("  No starts on record yet this season.")
-        return
 
-    for row in result.get("rows", []):
-        tier = row["tier"]
-        owned = f"{row['percent_owned']:.1f}%" if row["percent_owned"] is not None else "N/A"
-        print(f"{TIER_EMOJI.get(tier, '⚪')} {row['name']} | {row['mlb_team'] or 'N/A'} | Owned: {owned}")
-        print(f"  Tier: {tier}")
-        if row.get("opponent_score"):
-            opp_team = row.get("opponent_team") or "N/A"
-            print(f"  Opponent Score: {row['opponent_score']} ({opp_team})")
-        if row.get("keeper_projected_round") is not None:
-            drafted_round = row.get("keeper_drafted_round")
-            drafted_round_pick = row.get("keeper_drafted_round_pick")
-            draft_slot = f"{drafted_round}.{drafted_round_pick}" if drafted_round_pick else str(drafted_round)
-            print(
-                f"  Keeper Cost: Drafted R{draft_slot} -> Keep in R{row['keeper_projected_round']}"
-                f" (Overall {row.get('keeper_projected_pick') or 'NR'})"
-            )
-        else:
-            print("  Keeper Cost: NR")
-        print(f"  Recommendation: {row['recommendation']['action']}")
-        print(f"  Season: {row['season_record']} | Last 10: {row['last_ten_record']}")
-        if row["last_two_starts"]:
-            for start in row["last_two_starts"]:
+        for row in result.get("rows", []):
+            tier = row["tier"]
+            owned = f"{row['percent_owned']:.1f}%" if row["percent_owned"] is not None else "N/A"
+            print(f"{TIER_EMOJI.get(tier, '⚪')} {row['name']} | {row['mlb_team'] or 'N/A'} | Owned: {owned}")
+            print(f"  Tier: {tier}")
+            if row.get("opponent_score"):
+                opp_team = row.get("opponent_team") or "N/A"
+                print(f"  Opponent Score: {row['opponent_score']} ({opp_team})")
+            if row.get("keeper_projected_round") is not None:
+                drafted_round = row.get("keeper_drafted_round")
+                drafted_round_pick = row.get("keeper_drafted_round_pick")
+                draft_slot = f"{drafted_round}.{drafted_round_pick}" if drafted_round_pick else str(drafted_round)
                 print(
-                    f"  {start['date']} {start['matchup']} {start['result']} | "
-                    f"IP {start['ip']} H {start['h']} R {start['r']} ER {start['er']} "
-                    f"BB {start['bb']} K {start['k']} ERA {start['era']}"
+                    f"  Keeper Cost: Drafted R{draft_slot} -> Keep in R{row['keeper_projected_round']}"
+                    f" (Overall {row.get('keeper_projected_pick') or 'NR'})"
                 )
-        else:
-            print("  No starts on record yet this season.")
-        print(f"  {'·' * 88}")
+            else:
+                print("  Keeper Cost: NR")
+            print(f"  Recommendation: {row['recommendation']['action']}")
+            print(f"  Season: {row['season_record']} | Last 10: {row['last_ten_record']}")
+            if row["last_two_starts"]:
+                for start in row["last_two_starts"]:
+                    print(
+                        f"  {start['date']} {start['matchup']} {start['result']} | "
+                        f"IP {start['ip']} H {start['h']} R {start['r']} ER {start['er']} "
+                        f"BB {start['bb']} K {start['k']} ERA {start['era']}"
+                    )
+            else:
+                print("  No starts on record yet this season.")
+            print(f"  {'·' * 88}")
 
 
 def parse_args() -> argparse.Namespace:

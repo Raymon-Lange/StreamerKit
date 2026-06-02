@@ -6,6 +6,7 @@ import requests
 import statsapi
 
 from models.player import TrendSummary
+from utils.feed_logger import log_feed_fetch
 
 CURRENT_YEAR = date.today().year
 _TEAM_ABBR_CACHE: dict[int, str] = {}
@@ -92,10 +93,11 @@ def get_player_id(name: str, prefer_pitcher: bool = False) -> int | None:
 
 def get_hitter_game_log(player_id: int):
     try:
-        data = statsapi.get("people", {
-            "personIds": player_id,
-            "hydrate": f"stats(group=hitting,type=gameLog,season={CURRENT_YEAR})",
-        })
+        with log_feed_fetch("mlb_stats", "get_hitter_game_log"):
+            data = statsapi.get("people", {
+                "personIds": player_id,
+                "hydrate": f"stats(group=hitting,type=gameLog,season={CURRENT_YEAR})",
+            })
     except Exception:
         return []
 
@@ -167,10 +169,11 @@ def summarize_recent_hitting(name: str, trend_games: int = 10) -> TrendSummary:
 
 def get_pitcher_game_log(player_id: int):
     try:
-        data = statsapi.get("people", {
-            "personIds": player_id,
-            "hydrate": f"stats(group=pitching,type=gameLog,season={CURRENT_YEAR})",
-        })
+        with log_feed_fetch("mlb_stats", "get_pitcher_game_log"):
+            data = statsapi.get("people", {
+                "personIds": player_id,
+                "hydrate": f"stats(group=pitching,type=gameLog,season={CURRENT_YEAR})",
+            })
     except Exception:
         return []
 
@@ -230,9 +233,10 @@ def get_todays_probable_starters(for_date: date | None = None) -> set[str]:
     url = f"https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates={today}"
 
     try:
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()
-        data = response.json()
+        with log_feed_fetch("mlb_stats", "get_todays_probable_starters"):
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
+            data = response.json()
     except Exception:
         return set()
 

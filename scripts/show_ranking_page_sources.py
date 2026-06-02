@@ -4,6 +4,7 @@ import argparse
 import json
 from pathlib import Path
 import sys
+from utils.feed_logger import log_script_run
 
 if __package__ in {None, ""}:
     sys.path.append(str(Path(__file__).resolve().parents[1]))
@@ -44,37 +45,38 @@ def _read_payload(path: Path) -> dict | None:
 
 
 def run(show_missing: bool = False) -> int:
-    divider = "-" * 110
-    print(divider)
-    print("Ranking Page Source Summary")
-    print(divider)
+    with log_script_run("show_ranking_page_sources.py"):
+        divider = "-" * 110
+        print(divider)
+        print("Ranking Page Source Summary")
+        print(divider)
 
-    any_printed = False
-    for label, path in RANKING_CACHE_FILES:
-        payload = _read_payload(path)
-        if payload is None:
-            if show_missing:
-                print(f"{label}: cache missing/unreadable at {path}")
-            continue
+        any_printed = False
+        for label, path in RANKING_CACHE_FILES:
+            payload = _read_payload(path)
+            if payload is None:
+                if show_missing:
+                    print(f"{label}: cache missing/unreadable at {path}")
+                continue
 
-        fetched_at = payload.get("fetched_at") or "N/A"
-        source_url = payload.get("url") or "N/A"
-        rows = payload.get("rows", [])
-        article_dates = _collect_article_dates(rows if isinstance(rows, list) else [])
-        article_date_text = ", ".join(article_dates) if article_dates else "N/A"
+            fetched_at = payload.get("fetched_at") or "N/A"
+            source_url = payload.get("url") or "N/A"
+            rows = payload.get("rows", [])
+            article_dates = _collect_article_dates(rows if isinstance(rows, list) else [])
+            article_date_text = ", ".join(article_dates) if article_dates else "N/A"
 
-        print(f"\n[{label}]")
-        print(f"cache_file: {path}")
-        print(f"fetched_at: {fetched_at}")
-        print(f"source_url: {source_url}")
-        print(f"article_date(s): {article_date_text}")
-        any_printed = True
+            print(f"\n[{label}]")
+            print(f"cache_file: {path}")
+            print(f"fetched_at: {fetched_at}")
+            print(f"source_url: {source_url}")
+            print(f"article_date(s): {article_date_text}")
+            any_printed = True
 
-    if not any_printed:
-        print("No ranking cache files were found.")
-        return 1
+        if not any_printed:
+            print("No ranking cache files were found.")
+            return 1
 
-    return 0
+        return 0
 
 
 def parse_args() -> argparse.Namespace:

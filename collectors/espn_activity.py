@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 
 from collectors.espn import EspnContext, player_to_record
 from models.player import PlayerRecord
+from utils.feed_logger import log_feed_fetch
 from utils.names import normalize_name
 
 
@@ -44,51 +45,52 @@ def get_recent_drops(
     cutoff = datetime.now(timezone.utc) - timedelta(days=days)
     rows: list[DropActivityRecord] = []
 
-    for page in range(max_pages):
-        offset = page * page_size
-        try:
-            activity = context.league.recent_activity(size=page_size, offset=offset)
-        except Exception:
-            break
+    with log_feed_fetch("espn", "get_recent_drops"):
+        for page in range(max_pages):
+            offset = page * page_size
+            try:
+                activity = context.league.recent_activity(size=page_size, offset=offset)
+            except Exception:
+                break
 
-        if not activity:
-            break
+            if not activity:
+                break
 
-        reached_older = False
-        for entry in activity:
-            occurred_at = _to_utc_datetime(getattr(entry, "date", None))
-            if occurred_at is None:
-                continue
-            if occurred_at < cutoff:
-                reached_older = True
-                continue
-
-            for team, action, player in getattr(entry, "actions", []):
-                if action != "DROPPED" or not player:
+            reached_older = False
+            for entry in activity:
+                occurred_at = _to_utc_datetime(getattr(entry, "date", None))
+                if occurred_at is None:
                     continue
-                if hasattr(player, "name"):
-                    player_record = player_to_record(player, source="espn_recent_drop")
-                else:
-                    name = str(player).strip()
-                    if not name:
-                        continue
-                    player_record = PlayerRecord(
-                        name=name,
-                        normalized_name=normalize_name(name),
-                        source="espn_recent_drop",
-                        espn_raw=player,
-                    )
-                rows.append(
-                    DropActivityRecord(
-                        occurred_at=occurred_at,
-                        dropped_by=_team_label(team),
-                        player=player_record,
-                        action=action,
-                    )
-                )
+                if occurred_at < cutoff:
+                    reached_older = True
+                    continue
 
-        if reached_older:
-            break
+                for team, action, player in getattr(entry, "actions", []):
+                    if action != "DROPPED" or not player:
+                        continue
+                    if hasattr(player, "name"):
+                        player_record = player_to_record(player, source="espn_recent_drop")
+                    else:
+                        name = str(player).strip()
+                        if not name:
+                            continue
+                        player_record = PlayerRecord(
+                            name=name,
+                            normalized_name=normalize_name(name),
+                            source="espn_recent_drop",
+                            espn_raw=player,
+                        )
+                    rows.append(
+                        DropActivityRecord(
+                            occurred_at=occurred_at,
+                            dropped_by=_team_label(team),
+                            player=player_record,
+                            action=action,
+                        )
+                    )
+
+            if reached_older:
+                break
 
     rows.sort(key=lambda row: row.occurred_at, reverse=True)
     return rows

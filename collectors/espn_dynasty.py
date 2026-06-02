@@ -10,6 +10,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from models.player import RankingEntry
+from utils.feed_logger import log_feed_fetch
 from utils.names import normalize_name
 
 ESPN_DYNASTY_URL = (
@@ -197,24 +198,28 @@ def _save_cache(url: str, ranked: dict[str, RankingEntry]) -> None:
 
 def scrape_espn_dynasty_hitters(url: str = ESPN_DYNASTY_URL, force_refresh: bool = False) -> dict[str, RankingEntry]:
     cached = _load_cache()
-    if cached and not force_refresh and _is_cache_fresh():
-        return _deserialize_rankings(cached.get("rows", []))
 
-    try:
-        html = fetch_html(url=url)
-        soup = BeautifulSoup(html, "html.parser")
-        meta = extract_article_meta(soup, url)
-        table = _find_dynasty_table(soup)
-        if table is None:
-            raise ValueError("Could not find 'Top 300 dynasty league rankings' table.")
-
-        ranked = _parse_table(table, meta=meta)
-        if not ranked:
-            raise ValueError("No ESPN dynasty rows were parsed from the table.")
-
-        _save_cache(url, ranked)
-        return ranked
-    except Exception:
-        if cached:
+    with log_feed_fetch("espn_dynasty", "scrape_espn_dynasty_hitters") as feed_log:
+        if cached and not force_refresh and _is_cache_fresh():
+            feed_log.mark_cache_fallback()
             return _deserialize_rankings(cached.get("rows", []))
-        raise
+
+        try:
+            html = fetch_html(url=url)
+            soup = BeautifulSoup(html, "html.parser")
+            meta = extract_article_meta(soup, url)
+            table = _find_dynasty_table(soup)
+            if table is None:
+                raise ValueError("Could not find 'Top 300 dynasty league rankings' table.")
+
+            ranked = _parse_table(table, meta=meta)
+            if not ranked:
+                raise ValueError("No ESPN dynasty rows were parsed from the table.")
+
+            _save_cache(url, ranked)
+            return ranked
+        except Exception:
+            if cached:
+                feed_log.mark_cache_fallback()
+                return _deserialize_rankings(cached.get("rows", []))
+            raise

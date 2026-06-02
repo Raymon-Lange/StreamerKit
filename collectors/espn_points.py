@@ -10,6 +10,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from models.player import RankingEntry
+from utils.feed_logger import log_feed_fetch
 from utils.names import clean_player_name, normalize_name
 
 ESPN_POINTS_TOP300_URL = (
@@ -205,25 +206,29 @@ def scrape_espn_points_top300(
     limit: int = 300,
 ) -> dict[str, RankingEntry]:
     cached = _load_cache()
-    if cached and not force_refresh and _is_cache_fresh():
-        return _deserialize_rankings(cached.get("rows", []))
 
-    try:
-        html = fetch_html(url=url)
-        soup = BeautifulSoup(html, "html.parser")
-        meta = extract_article_meta(soup, url)
-
-        table = _find_top300_table(soup)
-        if table is None:
-            raise ValueError("Could not find ESPN points Top 300 table.")
-
-        ranked = _parse_table(table, meta=meta, limit=limit)
-        if not ranked:
-            raise ValueError("No ESPN points Top 300 rows were parsed.")
-
-        _save_cache(url, ranked)
-        return ranked
-    except Exception:
-        if cached:
+    with log_feed_fetch("espn_points", "scrape_espn_points_top300") as feed_log:
+        if cached and not force_refresh and _is_cache_fresh():
+            feed_log.mark_cache_fallback()
             return _deserialize_rankings(cached.get("rows", []))
-        raise
+
+        try:
+            html = fetch_html(url=url)
+            soup = BeautifulSoup(html, "html.parser")
+            meta = extract_article_meta(soup, url)
+
+            table = _find_top300_table(soup)
+            if table is None:
+                raise ValueError("Could not find ESPN points Top 300 table.")
+
+            ranked = _parse_table(table, meta=meta, limit=limit)
+            if not ranked:
+                raise ValueError("No ESPN points Top 300 rows were parsed.")
+
+            _save_cache(url, ranked)
+            return ranked
+        except Exception:
+            if cached:
+                feed_log.mark_cache_fallback()
+                return _deserialize_rankings(cached.get("rows", []))
+            raise

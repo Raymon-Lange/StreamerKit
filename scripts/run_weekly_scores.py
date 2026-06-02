@@ -11,6 +11,7 @@ if __package__ in {None, ""}:
 
 from collectors.espn import build_context
 from utils.config import AppConfig
+from utils.feed_logger import log_script_run
 
 
 def _matchup_score(matchup, side: str) -> float:
@@ -60,55 +61,56 @@ def _resolve_period(league, requested_period: int | None, latest_scored: bool) -
 
 
 def run(args) -> None:
-    cfg = AppConfig(
-        league_id=getattr(args, "league_id", None) or AppConfig().league_id,
-        team_id=getattr(args, "team_id", None) or AppConfig().team_id,
-        year=getattr(args, "year", None) or AppConfig().year,
-    )
-    context = build_context(cfg)
-    league = context.league
-    selected_period = _resolve_period(
-        league,
-        requested_period=getattr(args, "period", None),
-        latest_scored=getattr(args, "latest_scored", False),
-    )
-    scoreboard = _scoreboard_for_period(league, selected_period)
+    with log_script_run("run_weekly_scores.py"):
+        cfg = AppConfig(
+            league_id=getattr(args, "league_id", None) or AppConfig().league_id,
+            team_id=getattr(args, "team_id", None) or AppConfig().team_id,
+            year=getattr(args, "year", None) or AppConfig().year,
+        )
+        context = build_context(cfg)
+        league = context.league
+        selected_period = _resolve_period(
+            league,
+            requested_period=getattr(args, "period", None),
+            latest_scored=getattr(args, "latest_scored", False),
+        )
+        scoreboard = _scoreboard_for_period(league, selected_period)
 
-    rows: list[tuple[str, float, int]] = []
-    for matchup in scoreboard:
-        home_team = matchup.home_team
-        away_team = matchup.away_team
-        rows.append((home_team.team_name, _matchup_score(matchup, "home"), home_team.team_id))
-        rows.append((away_team.team_name, _matchup_score(matchup, "away"), away_team.team_id))
+        rows: list[tuple[str, float, int]] = []
+        for matchup in scoreboard:
+            home_team = matchup.home_team
+            away_team = matchup.away_team
+            rows.append((home_team.team_name, _matchup_score(matchup, "home"), home_team.team_id))
+            rows.append((away_team.team_name, _matchup_score(matchup, "away"), away_team.team_id))
 
-    rows.sort(key=lambda item: item[1], reverse=True)
-    scores = [score for _, score, _ in rows]
-    mean_score = statistics.mean(scores) if scores else 0.0
-    median_score = statistics.median(scores) if scores else 0.0
-    top_half_cutoff = (len(rows) + 1) // 2
-    target_team_id = cfg.team_id or -1
-    target_summary: tuple[int, str, float] | None = None
-    for idx, (team_name, score, team_id) in enumerate(rows, start=1):
-        if team_id == target_team_id:
-            target_summary = (idx, team_name, score)
-            break
+        rows.sort(key=lambda item: item[1], reverse=True)
+        scores = [score for _, score, _ in rows]
+        mean_score = statistics.mean(scores) if scores else 0.0
+        median_score = statistics.median(scores) if scores else 0.0
+        top_half_cutoff = (len(rows) + 1) // 2
+        target_team_id = cfg.team_id or -1
+        target_summary: tuple[int, str, float] | None = None
+        for idx, (team_name, score, team_id) in enumerate(rows, start=1):
+            if team_id == target_team_id:
+                target_summary = (idx, team_name, score)
+                break
 
-    divider = "─" * 88
-    print(divider)
-    print(f"📅  {date.today().strftime('%A, %B %d, %Y')}")
-    print(f"🏟   League: {league.settings.name}")
-    print(f"Season: {cfg.year} | Matchup Period: {selected_period}")
-    print(f"Teams: {len(rows)} | Mean: {mean_score:.1f} | Median: {median_score:.1f}")
-    if target_summary is not None:
-        rank, team_name, score = target_summary
-        half_label = "TOP HALF" if rank <= top_half_cutoff else "BOTTOM HALF"
-        print(f"Your Team: {team_name} | Rank: {rank}/{len(rows)} | Score: {score:.1f} | {half_label}")
-    print(divider)
+        divider = "─" * 88
+        print(divider)
+        print(f"📅  {date.today().strftime('%A, %B %d, %Y')}")
+        print(f"🏟   League: {league.settings.name}")
+        print(f"Season: {cfg.year} | Matchup Period: {selected_period}")
+        print(f"Teams: {len(rows)} | Mean: {mean_score:.1f} | Median: {median_score:.1f}")
+        if target_summary is not None:
+            rank, team_name, score = target_summary
+            half_label = "TOP HALF" if rank <= top_half_cutoff else "BOTTOM HALF"
+            print(f"Your Team: {team_name} | Rank: {rank}/{len(rows)} | Score: {score:.1f} | {half_label}")
+        print(divider)
 
-    for idx, (team_name, score, team_id) in enumerate(rows, start=1):
-        marker = "★" if team_id == target_team_id else " "
-        half_label = "TOP HALF" if idx <= top_half_cutoff else "BOTTOM HALF"
-        print(f"{marker} {idx:>2}. {team_name:<32} {score:>6.1f}  {half_label}")
+        for idx, (team_name, score, team_id) in enumerate(rows, start=1):
+            marker = "★" if team_id == target_team_id else " "
+            half_label = "TOP HALF" if idx <= top_half_cutoff else "BOTTOM HALF"
+            print(f"{marker} {idx:>2}. {team_name:<32} {score:>6.1f}  {half_label}")
 
 
 def parse_args() -> argparse.Namespace:
