@@ -19,6 +19,14 @@ const tierColor: Record<string, string> = {
   'Not Ranked': 'text-gray-500',
 }
 
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+function tomorrowLabel() {
+  const d = new Date()
+  d.setDate(d.getDate() + 1)
+  return `${DAYS[d.getDay()]} ${d.getDate()}`
+}
+
 export default function TomorrowStreamers() {
   const [rows, setRows] = useState<StreamerRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -32,7 +40,7 @@ export default function TomorrowStreamers() {
   }, [])
 
   return (
-    <Card title="Tomorrow's SP Streamers" loading={loading} error={error}>
+    <Card title={`Tomorrow's SP Streamers · ${tomorrowLabel()}`} loading={loading} error={error}>
       <div className="flex flex-col divide-y divide-gray-800">
         {rows.map(r => (
           <div key={r.name} className="py-2 flex items-start justify-between gap-2">

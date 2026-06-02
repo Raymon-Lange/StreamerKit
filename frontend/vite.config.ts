@@ -7,6 +7,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     host: '0.0.0.0',
+    watch: { usePolling: true },
     proxy: {
       '/api': apiTarget,
       '/health': apiTarget,
