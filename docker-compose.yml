@@ -1,9 +1,26 @@
 services:
   streamerkit:
-    build: .
+    image: ghcr.io/raymon-lange/baseball:latest
     ports:
       - "8000:8000"
     env_file: .env
     volumes:
-      - ./.cache:/app/.cache
+      - ./data/.cache:/app/.cache
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - frontend
+
+networks:
+  frontend:
+    external: true

@@ -191,3 +191,80 @@ python scripts/run_pitcher_start_eval.py --team-id 1
 python scripts/run_weekly_scores.py --latest-scored
 python scripts/show_ranking_page_sources.py --show-missing
 ```
+
+---
+
+## Deploy
+
+```bash
+# 1. Clone the repo
+git clone https://github.com/Raymon-Lange/baseball.git /home/deploy/baseball
+cd /home/deploy/baseball
+
+# 2. Copy and configure environment
+cp .env.example .env
+nano .env   # fill in all values marked "changeme"
+
+# 3. Deploy
+docker compose pull
+docker compose up -d
+```
+
+---
+
+## Environment variables
+
+See `.env.example` for the full list with descriptions.
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `APP_NAME` | Yes | `baseball` | App identifier; controls container name prefix |
+| `APP_DOMAIN` | Yes | — | Public domain (e.g. `baseball.hive.local`) |
+| `COMPOSE_PROJECT_NAME` | Yes | `baseball` | Docker Compose project name |
+| `STORAGE_MODE` | Yes | `local` | Storage mode (`local` or `s3`) |
+| `STORAGE_PATH` | Yes | — | Base path for persistent data volumes |
+| `TZ` | Yes | `UTC` | Timezone for all services |
+| `ESPN_S2` | Yes | — | ESPN session cookie (from browser devtools) |
+| `ESPN_SWID` | Yes | — | ESPN SWID cookie (UUID with braces) |
+| `LEAGUE_ID` | Yes | — | ESPN fantasy league ID |
+| `TEAM_ID` | Yes | — | Your team ID within the league |
+| `API_KEY` | Yes | — | API key for all `/api/*` requests (`X-API-Key` header) |
+
+---
+
+## Backup and restore
+
+```bash
+# Back up the ranking cache
+tar -czf baseball-cache-$(date +%Y%m%d).tar.gz ./data/.cache
+
+# Restore from backup
+tar -xzf baseball-cache-<date>.tar.gz
+```
+
+---
+
+## Troubleshoot
+
+```bash
+# Check container health
+docker compose ps
+
+# View recent logs
+docker compose logs --tail 50 streamerkit
+
+# Follow logs live
+docker compose logs -f
+
+# Enter the app container
+docker compose exec streamerkit sh
+
+# Restart the service
+docker compose restart streamerkit
+```
+
+### Common issues
+
+- **ESPN auth errors**: `ESPN_S2` and `ESPN_SWID` cookies expire periodically — re-copy them from browser devtools.
+- **Stale rankings**: Delete the relevant file under `./data/.cache/` to force a refresh on the next run.
+- **Port 8000 in use**: Change the host port in `docker-compose.yml` (e.g. `"8001:8000"`).
