@@ -14,6 +14,10 @@ __pycache__/
 # Runtime/cache
 .cache/
 *.log
+logs/
+
+# Claude Code
+.claude/
 
 # Node artifacts
 node_modules/
