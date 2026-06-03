@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+import os
 from pathlib import Path
 
 from fastapi import Depends, FastAPI
@@ -7,6 +9,9 @@ from fastapi.staticfiles import StaticFiles
 
 from app.auth import verify_api_key
 from app.routes import dashboard, drops, health, optimizer, pitcher_starts, streamers, weekly_scores
+
+_build_sha = os.getenv("BUILD_SHA", "dev")
+logging.getLogger("uvicorn.error").info("StreamerKit build=%s", _build_sha)
 
 app = FastAPI(title="StreamerKit", version="1.0")
 

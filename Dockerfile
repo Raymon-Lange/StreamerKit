@@ -9,6 +9,9 @@
 
 FROM python:3.12-slim
 
+ARG BUILD_SHA=dev
+ENV BUILD_SHA=${BUILD_SHA}
+
 WORKDIR /app
 
 COPY requirements.txt .
