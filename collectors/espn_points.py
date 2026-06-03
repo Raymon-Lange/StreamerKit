@@ -231,4 +231,4 @@ def scrape_espn_points_top300(
             if cached:
                 feed_log.mark_cache_fallback()
                 return _deserialize_rankings(cached.get("rows", []))
-            raise
+            return {}

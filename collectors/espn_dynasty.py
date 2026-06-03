@@ -222,4 +222,4 @@ def scrape_espn_dynasty_hitters(url: str = ESPN_DYNASTY_URL, force_refresh: bool
             if cached:
                 feed_log.mark_cache_fallback()
                 return _deserialize_rankings(cached.get("rows", []))
-            raise
+            return {}

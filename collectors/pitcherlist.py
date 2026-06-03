@@ -341,7 +341,7 @@ def scrape_top_hitters(
             if cached:
                 feed_log.mark_cache_fallback()
                 return _deserialize_rankings(cached.get("rows", []))
-            raise
+            return {}
 
 
 def scrape_dynasty_hitters(
@@ -400,7 +400,7 @@ def scrape_dynasty_hitters(
             if cached:
                 feed_log.mark_cache_fallback()
                 return _deserialize_rankings(cached.get("rows", []))
-            raise
+            return {}
 
 
 def get_latest_streamer_url() -> str:
