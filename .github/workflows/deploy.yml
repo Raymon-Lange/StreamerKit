@@ -38,7 +38,9 @@ jobs:
           tags: |
             ${{ env.IMAGE }}:latest
             ${{ env.IMAGE }}:${{ github.sha }}
-          build-args: BUILD_SHA=${{ github.sha }}
+          build-args: |
+            BUILD_SHA=${{ github.sha }}
+            VITE_API_KEY=${{ secrets.VITE_API_KEY }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
