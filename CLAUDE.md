@@ -47,5 +47,5 @@ They are loaded through `python-dotenv` from `.env`.
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan
-at `specs/004-mobile-responsive-layout/plan.md`.
+at `specs/005-streamer-row-expand/plan.md`.
 <!-- SPECKIT END -->
