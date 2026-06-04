@@ -13,6 +13,18 @@ from services.pitchers_service import get_streaming_pitcher_review
 from utils.config import AppConfig
 from utils.feed_logger import log_script_run
 
+_INJURY_LABEL = {
+    "TEN_DAY_DL": "[IL10]",
+    "FIFTEEN_DAY_DL": "[IL15]",
+    "SIXTY_DAY_DL": "[IL60]",
+    "SEVEN_DAY_DL": "[IL7]",
+    "INJURY_RESERVE": "[IR]",
+    "OUT": "[OUT]",
+    "SUSPENSION": "[SUSP]",
+    "DAY_TO_DAY": "[DTD]",
+    "QUESTIONABLE": "[QUES]",
+}
+
 
 def run(args) -> None:
     with log_script_run("run_sp_streamers.py"):
@@ -45,7 +57,9 @@ def run(args) -> None:
             tier = row["tier"]
             owned = f"{row['percent_owned']:.1f}%" if row["percent_owned"] is not None else "N/A"
             rank_text = f"#{row['streamer_rank']}" if row.get("streamer_rank") else "N/A"
-            print(f"{TIER_EMOJI.get(tier, '⚪')} {row['name']} | {row['mlb_team'] or 'N/A'} | Owned: {owned}")
+            inj = _INJURY_LABEL.get(row.get("injury_status") or "", "")
+            name_display = f"{row['name']} {inj}".strip() if inj else row["name"]
+            print(f"{TIER_EMOJI.get(tier, '⚪')} {name_display} | {row['mlb_team'] or 'N/A'} | Owned: {owned}")
             print(f"  Streamer Rank: {rank_text}")
             print(f"  Tier: {tier}")
             if row.get("opponent_score"):
@@ -77,7 +91,9 @@ def run(args) -> None:
         for row in result.get("rows", []):
             tier = row["tier"]
             owned = f"{row['percent_owned']:.1f}%" if row["percent_owned"] is not None else "N/A"
-            print(f"{TIER_EMOJI.get(tier, '⚪')} {row['name']} | {row['mlb_team'] or 'N/A'} | Owned: {owned}")
+            inj = _INJURY_LABEL.get(row.get("injury_status") or "", "")
+            name_display = f"{row['name']} {inj}".strip() if inj else row["name"]
+            print(f"{TIER_EMOJI.get(tier, '⚪')} {name_display} | {row['mlb_team'] or 'N/A'} | Owned: {owned}")
             print(f"  Tier: {tier}")
             if row.get("opponent_score"):
                 opp_team = row.get("opponent_team") or "N/A"

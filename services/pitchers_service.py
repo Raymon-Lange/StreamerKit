@@ -61,6 +61,7 @@ def _serialize_pitcher_row(
         "mlb_team": player.mlb_team,
         "positions": player.positions,
         "percent_owned": player.percent_owned,
+        "injury_status": player.injury_status,
         "streamer_rank": resolved_rank,
         "tier": tier,
         "opponent_team": rank.opponent_team if rank else None,

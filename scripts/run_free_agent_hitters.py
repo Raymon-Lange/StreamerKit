@@ -12,6 +12,18 @@ from services.hitters_service import get_free_agent_hitter_recommendations
 from utils.config import AppConfig
 from utils.feed_logger import log_script_run
 
+_INJURY_LABEL = {
+    "TEN_DAY_DL": "[IL10]",
+    "FIFTEEN_DAY_DL": "[IL15]",
+    "SIXTY_DAY_DL": "[IL60]",
+    "SEVEN_DAY_DL": "[IL7]",
+    "INJURY_RESERVE": "[IR]",
+    "OUT": "[OUT]",
+    "SUSPENSION": "[SUSP]",
+    "DAY_TO_DAY": "[DTD]",
+    "QUESTIONABLE": "[QUES]",
+}
+
 
 def run(args) -> None:
     with log_script_run("run_free_agent_hitters.py"):
@@ -43,9 +55,11 @@ def run(args) -> None:
         for row in result["rows"]:
             positions = "/".join((row["positions"] or [])[:4]) if row["positions"] else "N/A"
             owned = f"{row['percent_owned']:.1f}%" if row["percent_owned"] is not None else "N/A"
+            inj = _INJURY_LABEL.get(row.get("injury_status") or "", "")
+            name_display = f"{row['name']} {inj}".strip() if inj else row["name"]
             current_year_score = row["scoring"]["bucket_scores"]["current_year_rankings"]
             dynasty_score = row["scoring"]["bucket_scores"]["dynasty_rankings"]
-            print(f"{row['name']} | {row['mlb_team'] or 'N/A'} | Pos: {positions} | Owned: {owned}")
+            print(f"{name_display} | {row['mlb_team'] or 'N/A'} | Pos: {positions} | Owned: {owned}")
             print(
                 f"  Current-Year Rank (Best): {row['current_year_rank'] or 'NR'} | "
                 f"PL Redraft: {row['redraft_rank'] or 'NR'} | "

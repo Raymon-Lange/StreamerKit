@@ -75,6 +75,7 @@ def player_to_record(player, source: str) -> PlayerRecord:
     team = getattr(player, "proTeam", None) or None
     external_id = getattr(player, "playerId", None)
     percent_owned = getattr(player, "percent_owned", None)
+    injury_status = getattr(player, "injuryStatus", None) or None
     return PlayerRecord(
         name=player.name,
         normalized_name=normalize_name(player.name),
@@ -84,6 +85,7 @@ def player_to_record(player, source: str) -> PlayerRecord:
         source=source,
         external_id=external_id,
         espn_raw=player,
+        injury_status=injury_status,
     )
 
 

@@ -47,5 +47,5 @@ They are loaded through `python-dotenv` from `.env`.
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan
-at `specs/002-collector-feed-logging/plan.md`.
+at `specs/003-il-status-filter/plan.md`.
 <!-- SPECKIT END -->
