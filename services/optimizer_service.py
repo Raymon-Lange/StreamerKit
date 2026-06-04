@@ -34,6 +34,8 @@ def get_roster_optimizer(
     team = get_team(context, team_id=config.team_id or None)
     redraft = scrape_top_hitters()
     hitters = get_roster_players(context, team_id=team.team_id, player_type="hitters")
+    _IL_EXCLUDE = {"TEN_DAY_DL", "FIFTEEN_DAY_DL", "SIXTY_DAY_DL", "SEVEN_DAY_DL", "INJURY_RESERVE", "OUT", "SUSPENSION"}
+    hitters = [p for p in hitters if (p.injury_status or "ACTIVE") not in _IL_EXCLUDE]
 
     rows = []
     for player in hitters:

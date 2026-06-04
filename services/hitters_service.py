@@ -75,6 +75,7 @@ def get_free_agent_hitter_recommendations(
             "mlb_team": player.mlb_team,
             "positions": player.positions,
             "percent_owned": player.percent_owned,
+            "injury_status": player.injury_status,
             "redraft_rank": pl_redraft_rank,
             "espn_points_rank": espn_points_rank,
             "current_year_rank": current_year_rank,

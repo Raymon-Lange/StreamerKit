@@ -41,6 +41,7 @@ class PlayerRecord:
     source: str | None = None
     external_id: str | int | None = None
     espn_raw: Any = None
+    injury_status: str | None = None
 
 
 @dataclass(slots=True)
