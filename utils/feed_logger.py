@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import sys
 import time
 from contextlib import contextmanager
@@ -8,12 +9,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Generator
 
+_log_level = getattr(logging, os.getenv("LOG_LEVEL", "info").upper(), logging.INFO)
+
 _logger = logging.getLogger("baseball.feed")
 if not _logger.handlers:
     _handler = logging.StreamHandler(sys.stderr)
     _handler.setFormatter(logging.Formatter("%(message)s"))
     _logger.addHandler(_handler)
-    _logger.setLevel(logging.INFO)
+    _logger.setLevel(_log_level)
     _logger.propagate = False
 
 
