@@ -14,7 +14,7 @@ export default function App() {
         <span className="text-xs text-gray-500">Fantasy Baseball</span>
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 py-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+      <main className="max-w-6xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
         <DailyBrief />
         <Streamers />
         <TomorrowStreamers />

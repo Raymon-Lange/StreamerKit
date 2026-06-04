@@ -45,9 +45,9 @@ export default function DailyBrief() {
   }, [])
 
   return (
-    <Card title="Daily Brief" loading={loading} error={error} className="col-span-2">
+    <Card title="Daily Brief" loading={loading} error={error} className="col-span-1 lg:col-span-2">
       {data && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
 
           <div className="flex flex-col gap-1">
             <span className="text-xs text-gray-500">Top Streamer</span>

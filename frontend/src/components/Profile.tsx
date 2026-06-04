@@ -27,7 +27,7 @@ export default function Profile() {
   }, [])
 
   return (
-    <Card title="Profile" className="col-span-2">
+    <Card title="Profile" className="col-span-1 lg:col-span-2">
       <div className="flex flex-wrap gap-6 text-sm">
         <div className="flex flex-col gap-0.5">
           <span className="text-xs text-gray-500">League</span>
