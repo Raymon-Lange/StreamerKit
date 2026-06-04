@@ -11,6 +11,7 @@ __pycache__/
 .env
 *.log
 node_modules/
-frontend/
+frontend/node_modules/
+frontend/dist/
 STREAMERKIT-PHASE1-3.md
 .claude/
