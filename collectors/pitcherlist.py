@@ -1,15 +1,15 @@
 from __future__ import annotations
 
-import json
 import re
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
+from datetime import datetime, timezone
 
 import requests
 from bs4 import BeautifulSoup
 
 from models.player import RankingEntry
+from utils.cache_retention import ttl_for
+from utils.cache_store import store as _cache
 from utils.feed_logger import log_feed_fetch
 from utils.names import clean_player_name, normalize_name
 
@@ -20,10 +20,9 @@ SP_STREAMERS_CATEGORY_URL = "https://pitcherlist.com/category/fantasy/starting-p
 TIER_ORDER = ["Auto-Start", "Probably Start", "Questionable Start", "Do Not Start"]
 OPPONENT_SCORE_ORDER = ["Top", "Solid", "Average", "Weak", "Poor"]
 
-CACHE_TTL = timedelta(days=15)
-CACHE_DIR = Path(__file__).resolve().parents[1] / ".cache"
-TOP_HITTERS_CACHE_PATH = CACHE_DIR / "pitcherlist_top_hitters.json"
-DYNASTY_HITTERS_CACHE_PATH = CACHE_DIR / "pitcherlist_dynasty_hitters.json"
+_CACHE_NS = "collector"
+_HITTERS_KEY = "pitcherlist_top_hitters"
+_DYNASTY_KEY = "pitcherlist_dynasty_hitters"
 
 
 @dataclass(slots=True)
@@ -104,22 +103,6 @@ def _parse_ranked_table(table, limit: int, name_headers: tuple[str, ...], meta: 
     return ranked
 
 
-def _is_cache_fresh(path: Path) -> bool:
-    if not path.exists():
-        return False
-    modified_at = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc)
-    return datetime.now(timezone.utc) - modified_at <= CACHE_TTL
-
-
-def _load_cache(path: Path) -> dict | None:
-    if not path.exists():
-        return None
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return None
-
-
 def _serialize_rankings(ranked: dict[str, RankingEntry]) -> list[dict]:
     rows = []
     for key, entry in ranked.items():
@@ -156,16 +139,6 @@ def _deserialize_rankings(rows: list[dict]) -> dict[str, RankingEntry]:
             raw=row.get("raw"),
         )
     return ranked
-
-
-def _save_cache(path: Path, url: str, ranked: dict[str, RankingEntry]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    payload = {
-        "fetched_at": datetime.now(timezone.utc).isoformat(),
-        "url": url,
-        "rows": _serialize_rankings(ranked),
-    }
-    path.write_text(json.dumps(payload, ensure_ascii=True, indent=2), encoding="utf-8")
 
 
 def _canonical_team_code(code: str) -> str:
@@ -290,12 +263,14 @@ def scrape_top_hitters(
     limit: int = 300,
     force_refresh: bool = False,
 ) -> dict[str, RankingEntry]:
-    cached = _load_cache(TOP_HITTERS_CACHE_PATH)
+    _ttl = ttl_for(_HITTERS_KEY)
+    stale = _cache.get_stale(_CACHE_NS, _HITTERS_KEY)
+    fresh = None if force_refresh else _cache.get(_CACHE_NS, _HITTERS_KEY, ttl_seconds=_ttl)
 
     with log_feed_fetch("pitcherlist", "scrape_top_hitters") as feed_log:
-        if cached and not force_refresh and _is_cache_fresh(TOP_HITTERS_CACHE_PATH):
+        if fresh is not None:
             feed_log.mark_cache_fallback()
-            return _deserialize_rankings(cached.get("rows", []))
+            return _deserialize_rankings(fresh.get("rows", []))
 
         try:
             soup = fetch_html(url)
@@ -306,7 +281,12 @@ def scrape_top_hitters(
                 if "rank" in headers and "hitter" in headers:
                     ranked = _parse_ranked_table(table, limit, ("hitter",), meta, source="pitcherlist_top_hitters")
                     if ranked:
-                        _save_cache(TOP_HITTERS_CACHE_PATH, url, ranked)
+                        payload = {
+                            "fetched_at": datetime.now(timezone.utc).isoformat(),
+                            "url": url,
+                            "rows": _serialize_rankings(ranked),
+                        }
+                        _cache.set(_CACHE_NS, _HITTERS_KEY, payload, ttl_seconds=_ttl)
                         return ranked
 
             ranked: dict[str, RankingEntry] = {}
@@ -335,12 +315,17 @@ def scrape_top_hitters(
             if not ranked:
                 raise ValueError("No Top 300 hitters were parsed from Pitcher List.")
 
-            _save_cache(TOP_HITTERS_CACHE_PATH, url, ranked)
+            payload = {
+                "fetched_at": datetime.now(timezone.utc).isoformat(),
+                "url": url,
+                "rows": _serialize_rankings(ranked),
+            }
+            _cache.set(_CACHE_NS, _HITTERS_KEY, payload, ttl_seconds=_ttl)
             return ranked
         except Exception:
-            if cached:
+            if stale:
                 feed_log.mark_cache_fallback()
-                return _deserialize_rankings(cached.get("rows", []))
+                return _deserialize_rankings(stale.get("rows", []))
             return {}
 
 
@@ -349,12 +334,14 @@ def scrape_dynasty_hitters(
     limit: int = 400,
     force_refresh: bool = False,
 ) -> dict[str, RankingEntry]:
-    cached = _load_cache(DYNASTY_HITTERS_CACHE_PATH)
+    _ttl = ttl_for(_DYNASTY_KEY)
+    stale = _cache.get_stale(_CACHE_NS, _DYNASTY_KEY)
+    fresh = None if force_refresh else _cache.get(_CACHE_NS, _DYNASTY_KEY, ttl_seconds=_ttl)
 
     with log_feed_fetch("pitcherlist", "scrape_dynasty_hitters") as feed_log:
-        if cached and not force_refresh and _is_cache_fresh(DYNASTY_HITTERS_CACHE_PATH):
+        if fresh is not None:
             feed_log.mark_cache_fallback()
-            return _deserialize_rankings(cached.get("rows", []))
+            return _deserialize_rankings(fresh.get("rows", []))
 
         try:
             soup = fetch_html(url)
@@ -365,7 +352,12 @@ def scrape_dynasty_hitters(
                 if "rank" in headers and "player" in headers:
                     ranked = _parse_ranked_table(table, limit, ("player",), meta, source="pitcherlist_dynasty")
                     if ranked:
-                        _save_cache(DYNASTY_HITTERS_CACHE_PATH, url, ranked)
+                        payload = {
+                            "fetched_at": datetime.now(timezone.utc).isoformat(),
+                            "url": url,
+                            "rows": _serialize_rankings(ranked),
+                        }
+                        _cache.set(_CACHE_NS, _DYNASTY_KEY, payload, ttl_seconds=_ttl)
                         return ranked
 
             ranked: dict[str, RankingEntry] = {}
@@ -394,12 +386,17 @@ def scrape_dynasty_hitters(
             if not ranked:
                 raise ValueError("No Top 400 dynasty hitters were parsed from Pitcher List.")
 
-            _save_cache(DYNASTY_HITTERS_CACHE_PATH, url, ranked)
+            payload = {
+                "fetched_at": datetime.now(timezone.utc).isoformat(),
+                "url": url,
+                "rows": _serialize_rankings(ranked),
+            }
+            _cache.set(_CACHE_NS, _DYNASTY_KEY, payload, ttl_seconds=_ttl)
             return ranked
         except Exception:
-            if cached:
+            if stale:
                 feed_log.mark_cache_fallback()
-                return _deserialize_rankings(cached.get("rows", []))
+                return _deserialize_rankings(stale.get("rows", []))
             return {}
 
 

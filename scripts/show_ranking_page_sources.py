@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 from pathlib import Path
 import sys
 from utils.feed_logger import log_script_run
@@ -9,14 +8,13 @@ from utils.feed_logger import log_script_run
 if __package__ in {None, ""}:
     sys.path.append(str(Path(__file__).resolve().parents[1]))
 
+from utils.cache_store import store as _cache
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-
-RANKING_CACHE_FILES = [
-    ("ESPN Points Top 300", REPO_ROOT / ".cache" / "espn_points_top300_2026.json"),
-    ("ESPN Dynasty Top 300", REPO_ROOT / ".cache" / "espn_dynasty_top300.json"),
-    ("Pitcher List Top Hitters", REPO_ROOT / ".cache" / "pitcherlist_top_hitters.json"),
-    ("Pitcher List Dynasty Hitters", REPO_ROOT / ".cache" / "pitcherlist_dynasty_hitters.json"),
+_RANKING_KEYS = [
+    ("ESPN Points Top 300",          "espn_points_top300"),
+    ("ESPN Dynasty Top 300",         "espn_dynasty_top300"),
+    ("Pitcher List Top Hitters",     "pitcherlist_top_hitters"),
+    ("Pitcher List Dynasty Hitters", "pitcherlist_dynasty_hitters"),
 ]
 
 
@@ -35,15 +33,6 @@ def _collect_article_dates(rows: list[dict]) -> list[str]:
     return ordered
 
 
-def _read_payload(path: Path) -> dict | None:
-    if not path.exists():
-        return None
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return None
-
-
 def run(show_missing: bool = False) -> int:
     with log_script_run("show_ranking_page_sources.py"):
         divider = "-" * 110
@@ -52,11 +41,11 @@ def run(show_missing: bool = False) -> int:
         print(divider)
 
         any_printed = False
-        for label, path in RANKING_CACHE_FILES:
-            payload = _read_payload(path)
+        for label, key in _RANKING_KEYS:
+            payload = _cache.get_stale("collector", key)
             if payload is None:
                 if show_missing:
-                    print(f"{label}: cache missing/unreadable at {path}")
+                    print(f"{label}: not found in cache (key={key!r})")
                 continue
 
             fetched_at = payload.get("fetched_at") or "N/A"
@@ -66,14 +55,14 @@ def run(show_missing: bool = False) -> int:
             article_date_text = ", ".join(article_dates) if article_dates else "N/A"
 
             print(f"\n[{label}]")
-            print(f"cache_file: {path}")
+            print(f"cache_key:  {key}")
             print(f"fetched_at: {fetched_at}")
             print(f"source_url: {source_url}")
             print(f"article_date(s): {article_date_text}")
             any_printed = True
 
         if not any_printed:
-            print("No ranking cache files were found.")
+            print("No ranking cache entries were found.")
             return 1
 
         return 0

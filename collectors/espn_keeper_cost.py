@@ -1,13 +1,15 @@
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from pathlib import Path
 
 from collectors.espn import EspnContext
+from utils.cache_retention import ttl_for
+from utils.cache_store import store as _cache
 from utils.feed_logger import log_feed_fetch
 from utils.names import normalize_name
+
+_CACHE_NS = "collector"
 
 
 @dataclass(slots=True)
@@ -21,11 +23,6 @@ class KeeperCostEntry:
     team_id: int | None = None
     team_name: str | None = None
     keeper_status: bool | None = None
-
-
-def _cache_path(league_id: int, year: int) -> Path:
-    root = Path(__file__).resolve().parents[1]
-    return root / ".cache" / f"espn_keeper_cost_{league_id}_{year}.json"
 
 
 def _serialize_rows(rows: dict[str, KeeperCostEntry]) -> list[dict]:
@@ -63,26 +60,6 @@ def _deserialize_rows(rows: list[dict]) -> dict[str, KeeperCostEntry]:
             keeper_status=row.get("keeper_status"),
         )
     return out
-
-
-def _load_cache(path: Path) -> dict | None:
-    if not path.exists():
-        return None
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return None
-
-
-def _save_cache(path: Path, *, league_id: int, year: int, rows: dict[str, KeeperCostEntry]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    payload = {
-        "fetched_at": datetime.now(timezone.utc).isoformat(),
-        "league_id": league_id,
-        "year": year,
-        "rows": _serialize_rows(rows),
-    }
-    path.write_text(json.dumps(payload, ensure_ascii=True, indent=2), encoding="utf-8")
 
 
 def _build_from_league(context: EspnContext) -> dict[str, KeeperCostEntry]:
@@ -133,9 +110,10 @@ def _build_from_league(context: EspnContext) -> dict[str, KeeperCostEntry]:
 def scrape_espn_keeper_cost(context: EspnContext, force_refresh: bool = False) -> dict[str, KeeperCostEntry]:
     league_id = int(context.config.league_id or 0)
     year = int(context.config.year)
-    path = _cache_path(league_id=league_id, year=year)
+    cache_key = f"espn_keeper_cost_{league_id}_{year}"
+    _ttl = ttl_for(cache_key)
 
-    cached = _load_cache(path)
+    cached = _cache.get(_CACHE_NS, cache_key, ttl_seconds=_ttl)
 
     with log_feed_fetch("espn_keeper_cost", "scrape_espn_keeper_cost") as feed_log:
         if cached and not force_refresh:
@@ -143,5 +121,11 @@ def scrape_espn_keeper_cost(context: EspnContext, force_refresh: bool = False) -
             return _deserialize_rows(cached.get("rows", []))
 
         built = _build_from_league(context)
-        _save_cache(path, league_id=league_id, year=year, rows=built)
+        payload = {
+            "fetched_at": datetime.now(timezone.utc).isoformat(),
+            "league_id": league_id,
+            "year": year,
+            "rows": _serialize_rows(built),
+        }
+        _cache.set(_CACHE_NS, cache_key, payload, ttl_seconds=_ttl)
         return built

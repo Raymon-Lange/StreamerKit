@@ -1,15 +1,15 @@
 from __future__ import annotations
 
-import json
 import re
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
+from datetime import datetime, timezone
 
 import requests
 from bs4 import BeautifulSoup
 
 from models.player import RankingEntry
+from utils.cache_retention import ttl_for
+from utils.cache_store import store as _cache
 from utils.feed_logger import log_feed_fetch
 from utils.names import clean_player_name, normalize_name
 
@@ -17,8 +17,8 @@ ESPN_POINTS_TOP300_URL = (
     "https://www.espn.com/fantasy/baseball/story/_/id/35437997/"
     "fantasy-baseball-rankings-points-leagues-2026-espn-cockcroft"
 )
-CACHE_PATH = Path(__file__).resolve().parents[1] / ".cache" / "espn_points_top300_2026.json"
-CACHE_TTL = timedelta(days=15)
+_CACHE_NS = "collector"
+_CACHE_KEY = "espn_points_top300"
 TOP300_HEADING = "Top 300 Rankings for 2026"
 
 
@@ -136,22 +136,6 @@ def _parse_table(
     return ranked
 
 
-def _is_cache_fresh() -> bool:
-    if not CACHE_PATH.exists():
-        return False
-    modified_at = datetime.fromtimestamp(CACHE_PATH.stat().st_mtime, tz=timezone.utc)
-    return datetime.now(timezone.utc) - modified_at <= CACHE_TTL
-
-
-def _load_cache() -> dict | None:
-    if not CACHE_PATH.exists():
-        return None
-    try:
-        return json.loads(CACHE_PATH.read_text(encoding="utf-8"))
-    except Exception:
-        return None
-
-
 def _serialize_rankings(ranked: dict[str, RankingEntry]) -> list[dict]:
     rows = []
     for key, entry in ranked.items():
@@ -190,27 +174,19 @@ def _deserialize_rankings(rows: list[dict]) -> dict[str, RankingEntry]:
     return ranked
 
 
-def _save_cache(url: str, ranked: dict[str, RankingEntry]) -> None:
-    CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    payload = {
-        "fetched_at": datetime.now(timezone.utc).isoformat(),
-        "url": url,
-        "rows": _serialize_rankings(ranked),
-    }
-    CACHE_PATH.write_text(json.dumps(payload, ensure_ascii=True, indent=2), encoding="utf-8")
-
-
 def scrape_espn_points_top300(
     url: str = ESPN_POINTS_TOP300_URL,
     force_refresh: bool = False,
     limit: int = 300,
 ) -> dict[str, RankingEntry]:
-    cached = _load_cache()
+    _ttl = ttl_for(_CACHE_KEY)
+    stale = _cache.get_stale(_CACHE_NS, _CACHE_KEY)
+    fresh = None if force_refresh else _cache.get(_CACHE_NS, _CACHE_KEY, ttl_seconds=_ttl)
 
     with log_feed_fetch("espn_points", "scrape_espn_points_top300") as feed_log:
-        if cached and not force_refresh and _is_cache_fresh():
+        if fresh is not None:
             feed_log.mark_cache_fallback()
-            return _deserialize_rankings(cached.get("rows", []))
+            return _deserialize_rankings(fresh.get("rows", []))
 
         try:
             html = fetch_html(url=url)
@@ -225,10 +201,15 @@ def scrape_espn_points_top300(
             if not ranked:
                 raise ValueError("No ESPN points Top 300 rows were parsed.")
 
-            _save_cache(url, ranked)
+            payload = {
+                "fetched_at": datetime.now(timezone.utc).isoformat(),
+                "url": url,
+                "rows": _serialize_rankings(ranked),
+            }
+            _cache.set(_CACHE_NS, _CACHE_KEY, payload, ttl_seconds=_ttl)
             return ranked
         except Exception:
-            if cached:
+            if stale:
                 feed_log.mark_cache_fallback()
-                return _deserialize_rankings(cached.get("rows", []))
+                return _deserialize_rankings(stale.get("rows", []))
             return {}

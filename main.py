@@ -1,11 +1,14 @@
 from __future__ import annotations
 
-import json
 import sys
 import types
 import statistics
 from datetime import datetime
-from pathlib import Path
+
+from utils.cache_store import store as _cache
+
+_WEEKLY_NS = "weekly"
+_WEEKLY_TTL = 86_400  # 24 hours
 
 
 # ── input helpers ─────────────────────────────────────────────────────────────
@@ -90,36 +93,17 @@ def _resolve_latest_scored_period(league) -> int:
     return latest
 
 
-def _weekly_score_cache_path(league_id: int, team_id: int) -> Path:
-    return Path(__file__).resolve().parent / ".cache" / f"weekly_score_{league_id}_{team_id}.json"
-
-
 def _load_weekly_score_cache(league_id: int, team_id: int) -> str | None:
-    path = _weekly_score_cache_path(league_id=league_id, team_id=team_id)
-    if not path.exists():
+    key = f"weekly_score_{league_id}_{team_id}"
+    value = _cache.get(_WEEKLY_NS, key, ttl_seconds=float(_WEEKLY_TTL))
+    if value is None or not isinstance(value, str):
         return None
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return None
-    cache_date = payload.get("date")
-    line = payload.get("line")
-    if cache_date != datetime.now().date().isoformat():
-        return None
-    if not line or not isinstance(line, str):
-        return None
-    return line
+    return value
 
 
 def _save_weekly_score_cache(league_id: int, team_id: int, line: str) -> None:
-    path = _weekly_score_cache_path(league_id=league_id, team_id=team_id)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    payload = {
-        "date": datetime.now().date().isoformat(),
-        "updated_at": datetime.now().isoformat(),
-        "line": line,
-    }
-    path.write_text(json.dumps(payload, ensure_ascii=True, indent=2), encoding="utf-8")
+    key = f"weekly_score_{league_id}_{team_id}"
+    _cache.set(_WEEKLY_NS, key, line, ttl_seconds=float(_WEEKLY_TTL))
 
 
 def _weekly_header_line() -> str:

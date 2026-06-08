@@ -1,35 +1,14 @@
 from __future__ import annotations
 
-import json
-from datetime import datetime, timezone
-from pathlib import Path
+from utils.cache_store import store as _cache
 
-_CACHE_DIR = Path(__file__).resolve().parents[1] / ".cache"
-
-
-def _path(key: str) -> Path:
-    return _CACHE_DIR / f"api_{key}.json"
+_NS = "response"
+_DEFAULT_TTL = 300
 
 
-def get(key: str, ttl_seconds: int = 300) -> dict | None:
-    path = _path(key)
-    if not path.exists():
-        return None
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-        cached_at = datetime.fromisoformat(payload["cached_at"])
-        age = (datetime.now(timezone.utc) - cached_at).total_seconds()
-        if age > ttl_seconds:
-            return None
-        return payload["data"]
-    except Exception:
-        return None
+def get(key: str, ttl_seconds: int = _DEFAULT_TTL) -> dict | None:
+    return _cache.get(_NS, key, ttl_seconds=float(ttl_seconds))
 
 
-def set(key: str, data: dict) -> None:
-    _CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    payload = {
-        "cached_at": datetime.now(timezone.utc).isoformat(),
-        "data": data,
-    }
-    _path(key).write_text(json.dumps(payload, ensure_ascii=True, default=str), encoding="utf-8")
+def set(key: str, data: dict, ttl_seconds: int = _DEFAULT_TTL) -> None:
+    _cache.set(_NS, key, data, ttl_seconds=float(ttl_seconds))
