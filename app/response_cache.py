@@ -3,7 +3,7 @@ from __future__ import annotations
 from utils.cache_store import store as _cache
 
 _NS = "response"
-_DEFAULT_TTL = 300
+_DEFAULT_TTL = 1800
 
 
 def get(key: str, ttl_seconds: int = _DEFAULT_TTL) -> dict | None:
