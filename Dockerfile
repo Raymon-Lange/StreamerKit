@@ -9,7 +9,7 @@ ENV VITE_API_KEY=${VITE_API_KEY}
 RUN npm run build
 # ─────────────────────────────────────────────────────────────────────────────
 
-FROM python:3.12-slim
+FROM python:3.12-slim AS backend
 
 ARG BUILD_SHA=dev
 ENV BUILD_SHA=${BUILD_SHA}
@@ -21,8 +21,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-COPY --from=frontend /frontend/dist ./frontend/dist
-
 EXPOSE 8000
 
 CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port 8000 --log-level ${LOG_LEVEL:-info}"]
+
+# ── Production: include pre-built frontend ─────────────────────────────────────
+FROM backend AS prod
+
+COPY --from=frontend /frontend/dist ./frontend/dist

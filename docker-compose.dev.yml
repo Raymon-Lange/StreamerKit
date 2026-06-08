@@ -1,33 +1,46 @@
+# Local dev only — do not deploy this file to the hive lab.
+# Run: bash scripts/setup-dev.sh
+
 services:
-  api:
-    build: .
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+  streamerkit:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: backend
     ports:
-      - "9471:8000"
+      - "8000:8000"
     env_file: .env
     volumes:
-      - .:/app
-      - /app/frontend
-    dns:
-      - 8.8.8.8
-      - 8.8.4.4
+      - ./.cache:/app/.cache
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - backend
 
-  web:
+  frontend:
     image: node:20-slim
     working_dir: /app
-    command: sh -c "npm install && npm run dev"
+    command: sh -c "npm ci && npm run dev"
     ports:
-      - "9472:5173"
-    environment:
-      - VITE_PROXY_TARGET=http://api:8000
-      - VITE_API_KEY=${API_KEY}
+      - "5173:5173"
     env_file: .env
+    environment:
+      - VITE_PROXY_TARGET=http://streamerkit:8000
     volumes:
       - ./frontend:/app
-      - frontend_node_modules:/app/node_modules
-    depends_on:
-      - api
+      - /app/node_modules
+    networks:
+      - backend
 
-volumes:
-  frontend_node_modules:
+networks:
+  backend:

@@ -127,18 +127,47 @@ You can override weights per script run:
 
 When a player is missing a ranking source, that bucket score falls back to `0` instead of reallocating all weight to other buckets.
 
-## Ranking caches
+## Cache
 
-Ranking collectors cache data for 15 days at:
+All caches are stored in a single SQLite database at `.cache/cache.db` (volume-mounted in Docker so it survives restarts).
 
-- `.cache/espn_dynasty_top300.json`
-- `.cache/espn_keeper_cost_<league_id>_<year>.json`
-- `.cache/espn_points_top300_2026.json`
-- `.cache/pitcherlist_top_hitters.json`
-- `.cache/pitcherlist_dynasty_hitters.json`
+Retention periods are configured in `utils/cache_retention.py`:
 
-If a cache file is not older than 15 days, the collector reads cached data and skips refresh. If refresh fails, collectors fall back to cached payloads when available.
-`espn_keeper_cost_<league_id>_<year>.json` is intentionally different: once it exists, it is reused without TTL refresh (unless explicitly force-refreshed in code).
+| Key | TTL |
+|---|---|
+| `espn_dynasty_top300` | 15 days |
+| `espn_points_top300` | 15 days |
+| `pitcherlist_top_hitters` | 15 days |
+| `pitcherlist_dynasty_hitters` | 15 days |
+| `espn_keeper_cost_<league>_<year>` | permanent |
+| API responses (`response` namespace) | 5 minutes |
+
+To change any retention period, edit `RETENTION` in `utils/cache_retention.py` — no other files need to change.
+
+**Inspect the cache:**
+
+```bash
+# All entries — namespace, key, age in hours, TTL
+python3 -c "
+import sqlite3, time
+conn = sqlite3.connect('.cache/cache.db')
+for r in conn.execute('SELECT namespace, key, round((? - cached_at)/3600,1), ttl_seconds FROM cache ORDER BY namespace, key', (time.time(),)):
+    print(r)
+"
+```
+
+`scripts/show_ranking_page_sources.py --show-missing` prints source URLs and fetch timestamps for all ranking entries.
+
+**Force-expire an entry** (triggers a fresh fetch on next request):
+
+```bash
+python3 -c "
+import sqlite3
+conn = sqlite3.connect('.cache/cache.db')
+conn.execute(\"UPDATE cache SET cached_at=0 WHERE key='espn_dynasty_top300'\")
+conn.commit()
+"
+```
 
 ## Environment
 
@@ -166,16 +195,46 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 
-## Dev server
+## Local development
+
+The dev setup runs the backend in Docker and the Vite dev server alongside it for hot module replacement.
+
+**Prerequisites:** Docker with Compose v2, Node.js 20+
+
+**First time:**
 
 ```bash
-docker compose -f docker-compose.dev.yml up
+cp .env.dev.example .env
+# Fill in ESPN_S2, ESPN_SWID, LEAGUE_ID, TEAM_ID, API_KEY
+bash scripts/setup-dev.sh
 ```
 
-- API: http://localhost:9471
-- Web: http://localhost:9472
+`setup-dev.sh` copies `.env.dev.example → .env` if no `.env` exists, then starts both containers.
 
-The dev compose maps `API_KEY` from `.env` to `VITE_API_KEY` automatically — no extra config needed.
+**Start:**
+
+```bash
+docker compose -f docker-compose.dev.yml up --build
+```
+
+- Frontend (HMR): http://localhost:5173
+- Backend API: http://localhost:8000
+
+The frontend Vite proxy forwards all `/api/*` requests to the backend — the frontend code is identical to production, no URL changes needed.
+
+**Rebuild backend only** (Python changes):
+
+```bash
+docker compose -f docker-compose.dev.yml up --build streamerkit
+```
+
+Frontend changes are reflected immediately via HMR without any rebuild.
+
+**Stop:**
+
+```bash
+docker compose -f docker-compose.dev.yml down
+```
 
 ## Run
 
@@ -235,11 +294,11 @@ See `.env.example` for the full list with descriptions.
 ## Backup and restore
 
 ```bash
-# Back up the ranking cache
-tar -czf baseball-cache-$(date +%Y%m%d).tar.gz ./data/.cache
+# Back up the cache database
+cp ./data/.cache/cache.db baseball-cache-$(date +%Y%m%d).db
 
 # Restore from backup
-tar -xzf baseball-cache-<date>.tar.gz
+cp baseball-cache-<date>.db ./data/.cache/cache.db
 ```
 
 ---
@@ -266,5 +325,5 @@ docker compose restart streamerkit
 ### Common issues
 
 - **ESPN auth errors**: `ESPN_S2` and `ESPN_SWID` cookies expire periodically — re-copy them from browser devtools.
-- **Stale rankings**: Delete the relevant file under `./data/.cache/` to force a refresh on the next run.
+- **Stale rankings**: Force-expire the entry in `cache.db` (see **Cache** section above) to trigger a fresh fetch on the next request.
 - **Port 8000 in use**: Change the host port in `docker-compose.yml` (e.g. `"8001:8000"`).
