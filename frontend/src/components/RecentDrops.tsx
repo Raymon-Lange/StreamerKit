@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import Card from './Card'
+import { injuryColor, injuryLabel } from '../constants/injuryStatus'
 
 interface DropRow {
   name: string
   mlb_team: string
   kind: 'H' | 'P'
   dropped_by: string
+  injury_status: string | null
   recommendation: { action: string; reason: string; score: number }
 }
 
@@ -35,7 +37,14 @@ export default function RecentDrops() {
         {rows.map(r => (
           <div key={r.name} className="py-2 flex items-start justify-between gap-2">
             <div className="flex flex-col gap-0.5 min-w-0">
-              <span className="font-medium text-white text-sm truncate">{r.name}</span>
+              <div className="flex items-center gap-1.5">
+                <span className="font-medium text-white text-sm truncate">{r.name}</span>
+                {r.injury_status && injuryColor[r.injury_status] && (
+                  <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-medium shrink-0 ${injuryColor[r.injury_status]}`}>
+                    {injuryLabel[r.injury_status]}
+                  </span>
+                )}
+              </div>
               <span className="text-xs text-gray-400">{r.mlb_team} · dropped by {r.dropped_by}</span>
               <span className="text-xs text-gray-500 truncate">{r.recommendation.reason}</span>
             </div>
