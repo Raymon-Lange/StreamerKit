@@ -265,8 +265,7 @@ cp .env.example .env
 nano .env   # fill in all values marked "changeme"
 
 # 3. Deploy
-docker compose pull
-docker compose up -d
+bash scripts/deploy.sh
 ```
 
 ---

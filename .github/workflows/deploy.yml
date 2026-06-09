@@ -52,13 +52,13 @@ jobs:
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           tags: tag:ci
 
-      - name: Copy docker-compose.yml to server
+      - name: Copy files to server
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: docker-compose.yml
+          source: "docker-compose.yml,scripts/"
           target: /home/deploy/baseball
 
       - name: Deploy via SSH
@@ -69,5 +69,4 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd /home/deploy/baseball
-            docker compose pull
-            docker compose up -d
+            bash scripts/deploy.sh
