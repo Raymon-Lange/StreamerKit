@@ -30,13 +30,7 @@ class ArticleMeta:
 
 
 def fetch_html(url: str = ESPN_DYNASTY_URL, timeout: int = 20) -> str:
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36"
-        )
-    }
-    resp = requests.get(url, headers=headers, timeout=timeout)
+    resp = requests.get(url, headers={"User-Agent": "curl/8.5.0"}, timeout=timeout)
     resp.raise_for_status()
     return resp.text
 

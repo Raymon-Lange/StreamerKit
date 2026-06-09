@@ -10,6 +10,7 @@ RETENTION: dict[str, Optional[float]] = {
     "pitcherlist_top_hitters":      15 * 86_400,   # 15 days
     "pitcherlist_dynasty_hitters":  15 * 86_400,   # 15 days
     "espn_keeper_cost":             None,           # permanent — league draft data
+    "espn_daily_notes":             86_400,         # 1 day — keyed by date
 }
 
 

@@ -26,6 +26,8 @@ interface StreamerRow {
   last_two_starts: LastStart[]
   opponent_team: string | null
   opponent_score: number | null
+  espn_fpts: number | null
+  espn_win_pct: number | null
 }
 
 const tierColor: Record<string, string> = {
@@ -115,6 +117,15 @@ export default function StreamerCard({ tomorrow = false }: Props) {
                 <span className="text-gray-300">
                   {r.opponent_team ?? '—'}{r.opponent_score != null ? ` (${r.opponent_score})` : ''}
                 </span>
+                {(r.espn_fpts != null || r.espn_win_pct != null) && (
+                  <>
+                    <span className="text-gray-600">ESPN Proj</span>
+                    <span className="text-gray-300">
+                      {r.espn_fpts != null ? `${r.espn_fpts.toFixed(1)} pts` : '—'}
+                      {r.espn_win_pct != null ? ` · Win ${(r.espn_win_pct * 100).toFixed(0)}%` : ''}
+                    </span>
+                  </>
+                )}
               </div>
             )}
           </div>
