@@ -64,6 +64,7 @@ def _serialize_hitter_row(player, trend_games: int, redraft: dict, pl_dynasty: d
     return {
         "kind": "H",
         "player": player,
+        "injury_status": player.injury_status,
         "redraft_rank": redraft_rank,
         "pl_dynasty_rank": pl_dynasty_rank,
         "espn_dynasty_rank": espn_dynasty_rank,
@@ -81,6 +82,7 @@ def _serialize_pitcher_row(player, streamer_ranks: dict) -> dict:
     return {
         "kind": "P",
         "player": player,
+        "injury_status": player.injury_status,
         "tier": tier,
         "season_record": season_record,
         "last_ten_record": last_ten,
@@ -180,6 +182,7 @@ def get_recent_drops_waiver_review(
             "mlb_team": player.mlb_team,
             "positions": player.positions,
             "percent_owned": player.percent_owned,
+            "injury_status": row["injury_status"],
             "dropped_by": drop.dropped_by,
             "dropped_at": drop.occurred_at.isoformat(),
             "recommendation": {

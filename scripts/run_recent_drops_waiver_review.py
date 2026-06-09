@@ -13,6 +13,18 @@ from utils.config import AppConfig
 from utils.feed_logger import log_script_run
 
 
+_INJURY_LABELS: dict[str, str] = {
+    "INJURY_RESERVE": "IR",
+    "DAY_TO_DAY": "DTD",
+    "TEN_DAY_DL": "IL10",
+    "FIFTEEN_DAY_DL": "IL15",
+    "SIXTY_DAY_DL": "IL60",
+    "SEVEN_DAY_DL": "IL7",
+    "OUT": "OUT",
+    "SUSPENSION": "SUSP",
+}
+
+
 def _fmt_when(iso_value: str) -> str:
     try:
         ts = datetime.fromisoformat(iso_value)
@@ -49,8 +61,11 @@ def run(args) -> None:
         for row in result["rows"]:
             positions = "/".join((row.get("positions") or [])[:4]) if row.get("positions") else "N/A"
             owned = f"{row['percent_owned']:.1f}%" if row.get("percent_owned") is not None else "N/A"
+            raw_status = row.get("injury_status")
+            status_label = _INJURY_LABELS.get(raw_status, raw_status) if raw_status and raw_status != "ACTIVE" else None
+            status_str = f" [{status_label}]" if status_label else ""
             print(
-                f"{row['name']} | {row.get('mlb_team') or 'N/A'} | Pos: {positions} | Owned: {owned} | "
+                f"{row['name']}{status_str} | {row.get('mlb_team') or 'N/A'} | Pos: {positions} | Owned: {owned} | "
                 f"Dropped by: {row['dropped_by']} ({_fmt_when(row['dropped_at'])})"
             )
             if row["kind"] == "H":
