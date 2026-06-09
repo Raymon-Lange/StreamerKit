@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 import requests
 from bs4 import BeautifulSoup
@@ -146,6 +146,9 @@ def scrape_espn_daily_sp_rankings(
     _ttl = ttl_for(cache_key)
 
     stale = _cache.get_stale(_CACHE_NS, cache_key)
+    if stale is None:
+        yesterday_key = f"{_CACHE_KEY_PREFIX}_{(target - timedelta(days=1)).isoformat()}"
+        stale = _cache.get_stale(_CACHE_NS, yesterday_key)
     fresh = None if force_refresh else _cache.get(_CACHE_NS, cache_key, ttl_seconds=_ttl)
 
     with log_feed_fetch("espn_daily_notes", "scrape_espn_daily_sp_rankings") as feed_log:

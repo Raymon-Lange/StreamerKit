@@ -17,6 +17,11 @@ _RANKING_KEYS = [
     ("Pitcher List Dynasty Hitters", "pitcherlist_dynasty_hitters"),
 ]
 
+_PREFIX_KEYS = [
+    ("ESPN Keeper Cost",   "espn_keeper_cost_"),
+    ("ESPN Daily Notes",   "espn_daily_notes_"),
+]
+
 
 def _collect_article_dates(rows: list[dict]) -> list[str]:
     seen: set[str] = set()
@@ -58,6 +63,26 @@ def run(show_missing: bool = False) -> int:
             print(f"cache_key:  {key}")
             print(f"fetched_at: {fetched_at}")
             print(f"source_url: {source_url}")
+            print(f"article_date(s): {article_date_text}")
+            any_printed = True
+
+        for label, prefix in _PREFIX_KEYS:
+            payload = _cache.get_latest_by_prefix("collector", prefix)
+            if payload is None:
+                if show_missing:
+                    print(f"{label}: not found in cache (prefix={prefix!r})")
+                continue
+
+            fetched_at = payload.get("fetched_at") or "N/A"
+            source_url = payload.get("url") or "N/A"
+            rows = payload.get("rows", [])
+            article_dates = _collect_article_dates(rows if isinstance(rows, list) else [])
+            article_date_text = ", ".join(article_dates) if article_dates else "N/A"
+
+            print(f"\n[{label}]")
+            print(f"cache_prefix: {prefix}")
+            print(f"fetched_at:   {fetched_at}")
+            print(f"source_url:   {source_url}")
             print(f"article_date(s): {article_date_text}")
             any_printed = True
 

@@ -86,6 +86,23 @@ class CacheStore:
             finally:
                 conn.close()
 
+    def get_latest_by_prefix(self, namespace: str, prefix: str) -> Any | None:
+        """Return the most recently cached entry whose key starts with prefix."""
+        conn = self._connect()
+        try:
+            row = conn.execute(
+                "SELECT value FROM cache WHERE namespace = ? AND key LIKE ? ORDER BY cached_at DESC LIMIT 1",
+                (namespace, f"{prefix}%"),
+            ).fetchone()
+        finally:
+            conn.close()
+        if row is None:
+            return None
+        try:
+            return json.loads(row[0])
+        except Exception:
+            return None
+
     def delete(self, namespace: str, key: str) -> None:
         with self._lock:
             conn = self._connect()
