@@ -19,4 +19,5 @@ export const api = {
     apiFetch(`/api/pitcher-starts?tomorrow=${tomorrow}`),
   weeklyScores: () => apiFetch('/api/weekly-scores?latest_scored=true'),
   optimizer: () => apiFetch('/api/roster-optimizer'),
+  feedStatus: () => apiFetch('/api/feed-status'),
 }

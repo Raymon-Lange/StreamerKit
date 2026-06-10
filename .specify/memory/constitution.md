@@ -107,7 +107,7 @@ a single API session. Cache invalidation is TTL-based, not event-based.
 
 Docker is the standard delivery mechanism. Two compose files are maintained:
 - `docker-compose.yml` — single-container production deployment.
-- `docker-compose.dev.yml` — dev setup with hot reload; API on `:9471`, Web on `:9472`.
+- `docker-compose.dev.yml` — dev setup with hot reload; API on `:8000`, Web (Vite) on `:5173`.
 
 The React frontend (`frontend/`) MUST source the API key from `VITE_API_KEY`, which the dev compose
 maps automatically from `.env`. No API credentials belong in frontend source files.
@@ -140,4 +140,4 @@ updating this file, incrementing the version, and including the rationale in the
 Phase 0 research. Pull requests that introduce layer boundary violations require explicit justification
 in the Complexity Tracking table of the relevant `plan.md`.
 
-**Version**: 1.0.0 | **Ratified**: 2026-06-01 | **Last Amended**: 2026-06-01
+**Version**: 1.0.1 | **Ratified**: 2026-06-01 | **Last Amended**: 2026-06-10
