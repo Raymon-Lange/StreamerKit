@@ -65,12 +65,6 @@ def run(args) -> None:
             if row.get("opponent_score"):
                 opp_team = row.get("opponent_team") or "N/A"
                 print(f"  Opponent Score: {row['opponent_score']} ({opp_team})")
-            espn_fpts = row.get("espn_fpts")
-            espn_win = row.get("espn_win_pct")
-            if espn_fpts is not None or espn_win is not None:
-                fpts_str = f"{espn_fpts:.1f} pts" if espn_fpts is not None else "—"
-                win_str = f"Win {espn_win * 100:.0f}%" if espn_win is not None else ""
-                print(f"  ESPN Proj: {fpts_str}{' · ' + win_str if win_str else ''}")
             if row.get("keeper_projected_round") is not None:
                 drafted_round = row.get("keeper_drafted_round")
                 drafted_round_pick = row.get("keeper_drafted_round_pick")
@@ -104,12 +98,6 @@ def run(args) -> None:
             if row.get("opponent_score"):
                 opp_team = row.get("opponent_team") or "N/A"
                 print(f"  Opponent Score: {row['opponent_score']} ({opp_team})")
-            espn_fpts = row.get("espn_fpts")
-            espn_win = row.get("espn_win_pct")
-            if espn_fpts is not None or espn_win is not None:
-                fpts_str = f"{espn_fpts:.1f} pts" if espn_fpts is not None else "—"
-                win_str = f"Win {espn_win * 100:.0f}%" if espn_win is not None else ""
-                print(f"  ESPN Proj: {fpts_str}{' · ' + win_str if win_str else ''}")
             if row.get("keeper_projected_round") is not None:
                 drafted_round = row.get("keeper_drafted_round")
                 drafted_round_pick = row.get("keeper_drafted_round_pick")

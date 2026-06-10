@@ -19,7 +19,6 @@ _RANKING_KEYS = [
 
 _PREFIX_KEYS = [
     ("ESPN Keeper Cost",   "espn_keeper_cost_"),
-    ("ESPN Daily Notes",   "espn_daily_notes_"),
 ]
 
 

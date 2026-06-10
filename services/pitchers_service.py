@@ -4,7 +4,6 @@ from datetime import date
 from difflib import get_close_matches
 
 from collectors.espn import build_context, get_all_roster_pitchers, get_free_agent_pitchers, get_roster_players, get_team
-from collectors.espn_daily_notes import scrape_espn_daily_sp_rankings
 from collectors.espn_keeper_cost import KeeperCostEntry, scrape_espn_keeper_cost
 from collectors.mlb_stats import get_pitcher_stats, get_player_id, get_todays_probable_starters
 from collectors.pitcherlist import scrape_sp_streamer_tiers
@@ -50,7 +49,6 @@ def _serialize_pitcher_row(
     rank,
     position_rank: int | None = None,
     keeper_cost: dict[str, KeeperCostEntry] | None = None,
-    espn_proj: dict | None = None,
 ) -> dict:
     tier = rank.tier if rank else "Not Ranked"
     rec = streamer_recommendation(tier)
@@ -77,8 +75,6 @@ def _serialize_pitcher_row(
             "reason": rec.reason,
             "score": rec.score,
         },
-        "espn_fpts": espn_proj.get("fpts") if espn_proj else None,
-        "espn_win_pct": espn_proj.get("win_pct") if espn_proj else None,
         "season_record": season_record,
         "last_ten_record": last_ten,
         "last_two_starts": last_two,
@@ -267,7 +263,6 @@ def get_streaming_pitcher_review(
     streamer_url, streamer_ranks = scrape_sp_streamer_tiers()
     streamer_positions = {name: idx for idx, name in enumerate(streamer_ranks.keys(), start=1)}
     keeper_cost = scrape_espn_keeper_cost(context)
-    _, espn_projections = scrape_espn_daily_sp_rankings(for_date=for_date or date.today())
 
     free_agents = get_free_agent_pitchers(context, size=200, position="SP")
     roster_pitchers = get_all_roster_pitchers(context)
@@ -320,7 +315,6 @@ def get_streaming_pitcher_review(
             rank,
             position_rank=streamer_positions.get(matched_key),
             keeper_cost=keeper_cost,
-            espn_proj=espn_projections.get(matched_key),
         )
         return payload
 
@@ -333,7 +327,6 @@ def get_streaming_pitcher_review(
                 rank,
                 position_rank=streamer_positions.get(player.normalized_name),
                 keeper_cost=keeper_cost,
-                espn_proj=espn_projections.get(player.normalized_name),
             )
         )
     payload["rows"] = rows
