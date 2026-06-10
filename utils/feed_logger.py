@@ -31,6 +31,11 @@ class FeedLogContext:
     def mark_cache_fallback(self) -> None:
         self.outcome = "cache-fallback"
 
+    def mark_error(self, exc: Exception) -> None:
+        self.outcome = "error"
+        self.error_type = type(exc).__name__
+        self.error_message = str(exc)
+
 
 def _triggered_by() -> str:
     try:
@@ -71,6 +76,23 @@ def log_feed_fetch(collector: str, operation: str) -> Generator[FeedLogContext, 
             _logger.info(line)
         except Exception:
             pass
+        if ctx.error_type:
+            try:
+                from utils.cache_store import store as _cache  # noqa: PLC0415
+                _cache.set(
+                    "feed_failures",
+                    f"{collector}|{operation}",
+                    {
+                        "timestamp": _now_utc() + "Z",
+                        "collector": collector,
+                        "operation": operation,
+                        "error_type": ctx.error_type,
+                        "error_message": ctx.error_message,
+                        "triggered_by": triggered,
+                    },
+                )
+            except Exception:
+                pass
 
 
 @contextmanager
