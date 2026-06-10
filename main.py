@@ -187,7 +187,7 @@ def _render_menu(weekly_line: str) -> str:
             _menu_line(" 7  Pitcher Start Eval     Best for: start/sit confidence"),
             _menu_line(""),
             _menu_line("[SYSTEM]"),
-            _menu_line(" 8  Ranking Page Sources   Best for: verify ranking page URL/date refresh"),
+            _menu_line(" 8  Feed Health            Best for: source URLs, cache freshness, feed failures"),
             _menu_line(" 9  Exit"),
             bottom_border,
         ]
@@ -249,11 +249,9 @@ def _run_waiver_pickup_review() -> None:
     run(types.SimpleNamespace(days=days, top=top, trend_games=trend, claim_mode=claim_mode))
 
 
-def _run_ranking_page_sources() -> None:
-    from scripts.show_ranking_page_sources import run
-
-    show_missing = ask_bool("Show missing/unreadable cache files?", default=False)
-    run(show_missing=show_missing)
+def _run_feed_health() -> None:
+    from scripts.show_feed_health import run
+    run()
 
 
 HANDLERS: dict[str, tuple[str, object]] = {
@@ -264,7 +262,7 @@ HANDLERS: dict[str, tuple[str, object]] = {
     "5": ("Waiver Pickup Review", _run_waiver_pickup_review),
     "6": ("Roster Optimizer", _run_roster_optimizer),
     "7": ("Pitcher Start Eval", _run_pitcher_start_eval),
-    "8": ("Ranking Page Sources", _run_ranking_page_sources),
+    "8": ("Feed Health", _run_feed_health),
     "9": ("Exit", None),
 }
 

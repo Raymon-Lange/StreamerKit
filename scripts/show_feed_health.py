@@ -9,7 +9,7 @@ import sys
 if __package__ in {None, ""}:
     sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from utils.cache_retention import RETENTION, ttl_for
+from utils.cache_retention import RETENTION
 from utils.cache_store import store as _cache
 
 _DIVIDER = "─" * 80
@@ -34,82 +34,92 @@ def _ttl_str(ttl: float | None) -> str:
     return f"{ttl / 3600:.0f}h"
 
 
-def _ts_local(ts_str: str) -> str:
+def _ts_str(ts: str) -> str:
     try:
-        dt = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
-        local = dt.astimezone()
-        return local.strftime("%b %d %H:%M")
+        dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        return dt.astimezone().strftime("%b %d %H:%M")
     except Exception:
-        return ts_str
+        return ts
 
 
-def _cache_age_seconds(namespace: str, key_or_prefix: str, by_prefix: bool) -> float | None:
-    """Return age in seconds of the most recent cache entry, or None if missing."""
-    keys = _cache.list_keys(namespace)
-    if by_prefix:
-        matches = [(k, ts) for k, ts in keys if k.startswith(key_or_prefix)]
-    else:
-        matches = [(k, ts) for k, ts in keys if k == key_or_prefix]
+def _latest_entry(cache_key: str) -> tuple[dict | None, float | None]:
+    """Return (payload, age_seconds) for the most recent entry matching cache_key as prefix."""
+    keys = _cache.list_keys("collector")
+    matches = [(k, ts) for k, ts in keys if k.startswith(cache_key)]
     if not matches:
-        return None
-    _, cached_at = max(matches, key=lambda x: x[1])
-    return time.time() - cached_at
+        return None, None
+    best_key, cached_at = max(matches, key=lambda x: x[1])
+    payload = _cache.get_stale("collector", best_key)
+    return payload, time.time() - cached_at
 
 
 def run() -> int:
     now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     print(_DIVIDER)
-    print(f"Feed Health Report · {now_str}")
+    print(f"Feed Health · {now_str}")
     print(_DIVIDER)
 
-    # ── Cache health per known collector ──────────────────────────────────────
-    print()
-    col_w = max(len(k) for k in RETENTION) + 2
+    failure_records: dict[str, dict] = {}
+    for key, _ in _cache.list_keys("feed_failures"):
+        rec = _cache.get_stale("feed_failures", key)
+        if rec:
+            failure_records[rec.get("collector", key)] = rec
 
+    print()
     for cache_key, ttl in RETENTION.items():
-        age_s = _cache_age_seconds("collector", cache_key, by_prefix=True)
+        payload, age_s = _latest_entry(cache_key)
 
         if age_s is None:
             status = "✗ MISSING"
-            detail = "no cache entry"
+            age_detail = "no cache entry"
         elif ttl is not None and age_s > ttl:
             status = "! STALE  "
-            detail = f"cached {_age_str(age_s)}  TTL: {_ttl_str(ttl)}"
+            age_detail = f"cached {_age_str(age_s)}  TTL: {_ttl_str(ttl)}"
         else:
             status = "✓ FRESH  "
-            detail = f"cached {_age_str(age_s)}  TTL: {_ttl_str(ttl)}"
+            age_detail = f"cached {_age_str(age_s)}  TTL: {_ttl_str(ttl)}"
 
-        print(f"  {cache_key:{col_w}}  {status}  {detail}")
+        print(f"  {status}  {cache_key}")
+        print(f"           {age_detail}")
 
-    # ── Recorded feed failures ────────────────────────────────────────────────
+        if payload:
+            url = payload.get("url")
+            fetched_at = payload.get("fetched_at")
+            if url:
+                print(f"           url: {url}")
+            if fetched_at:
+                print(f"           fetched: {_ts_str(fetched_at)}")
+
+        failure = failure_records.get(cache_key)
+        if failure:
+            ts = _ts_str(failure.get("timestamp", ""))
+            err = f"{failure.get('error_type', '?')}: {failure.get('error_message', '')}"
+            print(f"           ! last error {ts} — {err}")
+
+        print()
+
     failure_keys = _cache.list_keys("feed_failures")
-    if failure_keys:
+    uncorrelated = [
+        rec for key, _ in failure_keys
+        if (rec := _cache.get_stale("feed_failures", key))
+        and rec.get("collector") not in RETENTION
+    ]
+    if uncorrelated:
+        print("Other feed failures:")
         print()
-        print("Recent feed failures:")
-        print()
-        for key, _ in failure_keys:
-            rec = _cache.get_stale("feed_failures", key)
-            if not rec:
-                continue
-            ts = _ts_local(rec.get("timestamp", ""))
-            err_type = rec.get("error_type", "?")
-            err_msg = rec.get("error_message", "")
-            triggered = rec.get("triggered_by", "?")
-            label = f"  {rec.get('collector', key)} | {rec.get('operation', '')}"
-            print(f"{label}")
-            print(f"    {ts}  {err_type}: {err_msg}")
-            print(f"    triggered by: {triggered}")
-    else:
-        print()
-        print("  No feed failures recorded.")
+        for rec in uncorrelated:
+            ts = _ts_str(rec.get("timestamp", ""))
+            err = f"{rec.get('error_type', '?')}: {rec.get('error_message', '')}"
+            print(f"  {rec.get('collector', '?')} | {rec.get('operation', '')}")
+            print(f"    {ts} — {err}")
+            print()
 
-    print()
     print(_DIVIDER)
     return 0
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Show cache freshness and feed failure status.")
+    parser = argparse.ArgumentParser(description="Show cache freshness, source URLs, and feed failure status.")
     parser.parse_args()
     raise SystemExit(run())
 
