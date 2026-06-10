@@ -98,6 +98,18 @@ class CacheStore:
             conn.close()
         return [(row[0], row[1]) for row in rows]
 
+    def list_entries(self, namespace: str) -> list[tuple[str, float, float | None]]:
+        """Return [(key, cached_at, ttl_seconds)] for all entries in namespace."""
+        conn = self._connect()
+        try:
+            rows = conn.execute(
+                "SELECT key, cached_at, ttl_seconds FROM cache WHERE namespace = ? ORDER BY cached_at DESC",
+                (namespace,),
+            ).fetchall()
+        finally:
+            conn.close()
+        return [(row[0], row[1], row[2]) for row in rows]
+
     def delete(self, namespace: str, key: str) -> None:
         with self._lock:
             conn = self._connect()
