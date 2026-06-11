@@ -21,6 +21,8 @@ logs/
 
 # Node artifacts
 node_modules/
+frontend/dist/
+*.tsbuildinfo
 
 # OS/editor
 .DS_Store
