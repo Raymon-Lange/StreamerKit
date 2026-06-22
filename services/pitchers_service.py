@@ -329,7 +329,7 @@ def get_streaming_pitcher_review(
                 keeper_cost=keeper_cost,
             )
         )
-    payload["rows"] = rows
+    payload["rows"] = sorted(rows, key=_streamer_rank_sort_key)
     payload["count"] = len(rows)
     return payload
 
