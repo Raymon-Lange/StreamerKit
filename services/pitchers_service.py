@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 from difflib import get_close_matches
 
@@ -318,17 +319,17 @@ def get_streaming_pitcher_review(
         )
         return payload
 
-    rows = []
-    for player in starters_today:
-        rank = streamer_ranks.get(player.normalized_name)
-        rows.append(
-            _serialize_pitcher_row(
-                player,
-                rank,
-                position_rank=streamer_positions.get(player.normalized_name),
-                keeper_cost=keeper_cost,
-            )
+    def _make_row(player):
+        return _serialize_pitcher_row(
+            player,
+            streamer_ranks.get(player.normalized_name),
+            position_rank=streamer_positions.get(player.normalized_name),
+            keeper_cost=keeper_cost,
         )
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        rows = list(pool.map(_make_row, starters_today))
+
     payload["rows"] = sorted(rows, key=_streamer_rank_sort_key)
     payload["count"] = len(rows)
     return payload
