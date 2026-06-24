@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,6 +19,14 @@ from utils.cache_store import store as _cache
 _build_sha = os.getenv("BUILD_SHA", "dev")
 logging.getLogger("uvicorn.error").info("StreamerKit build=%s", _build_sha)
 
+_api_logger = logging.getLogger("baseball.api")
+if not _api_logger.handlers:
+    _h = logging.StreamHandler()
+    _h.setFormatter(logging.Formatter("%(message)s"))
+    _api_logger.addHandler(_h)
+    _api_logger.setLevel(logging.INFO)
+    _api_logger.propagate = False
+
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
@@ -25,6 +35,25 @@ async def _lifespan(app: FastAPI):
 
 
 app = FastAPI(title="StreamerKit", version="1.0", lifespan=_lifespan)
+
+
+@app.middleware("http")
+async def _timing_middleware(request: Request, call_next):
+    start = time.perf_counter()
+    response = await call_next(request)
+    if request.url.path.startswith("/api/"):
+        duration_ms = (time.perf_counter() - start) * 1000
+        response.headers["X-Response-Time"] = f"{duration_ms:.0f}ms"
+        _api_logger.info(
+            "[API] %sZ | %s %s | %d | %dms",
+            datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S"),
+            request.method,
+            request.url.path,
+            response.status_code,
+            round(duration_ms),
+        )
+    return response
+
 
 _cors_origins = [o for o in os.getenv("CORS_ORIGINS", "").split(",") if o]
 if _cors_origins:
