@@ -41,7 +41,7 @@ def get_roster_card(
     team = get_team(context, team_id=config.team_id or None)
     players = get_roster_players(context, team_id=team.team_id)
 
-    hitters = [p for p in players if is_hitter(p)]
+    hitters = [p for p in players if is_hitter(p.espn_raw)]
 
     def _fetch_status(player):
         try:
@@ -52,14 +52,14 @@ def get_roster_card(
     with ThreadPoolExecutor(max_workers=8) as pool:
         statuses = list(pool.map(_fetch_status, hitters))
 
-    hitter_status = dict(zip(hitters, statuses))
+    hitter_status = {p.name: s for p, s in zip(hitters, statuses)}
 
     starters = []
     bench = []
 
     for player in players:
         slot = _lineup_slot(player)
-        status = hitter_status.get(player)
+        status = hitter_status.get(player.name)
         row = _serialize_player(player, slot, status)
         if slot in _BENCH_SLOTS:
             bench.append(row)
