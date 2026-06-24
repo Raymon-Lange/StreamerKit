@@ -61,3 +61,14 @@ class LineupSwap:
     score_gap: float
     start_trend: "TrendSummary"
     sit_trend: "TrendSummary"
+
+
+@dataclass(slots=True)
+class LineupStatus:
+    player_name: str
+    in_lineup: bool
+    status: str  # "starting" | "bench" | "no_game" | "not_found" | "lineup_not_posted"
+    batting_slot: int | None = None
+    team: str | None = None
+    opponent: str | None = None
+    game_time: str | None = None
