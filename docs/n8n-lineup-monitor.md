@@ -32,9 +32,44 @@ Run a second schedule (every 30 min, 4:00–6:00 PM ET) if you carry players wit
 
 ---
 
+## Production Base URL
+
+```
+https://streamerkit.fire-hive.com
+```
+
+All n8n HTTP Request nodes should use this as the base URL with the path appended.
+
+---
+
+## n8n Credential Setup
+
+In n8n, create one **Header Auth** credential:
+
+| Field | Value |
+|---|---|
+| Name | `StreamerKit API Key` |
+| Header Name | `X-API-Key` |
+| Header Value | *(your API key from `.env`)* |
+
+Attach this credential to every HTTP Request node in the workflow.
+
+---
+
 ## Endpoints & Purpose
 
 ### 1. `GET /api/my-roster`
+
+**Full URL**: `https://streamerkit.fire-hive.com/api/my-roster`
+
+**n8n HTTP Request node settings**:
+
+| Field | Value |
+|---|---|
+| Method | `GET` |
+| URL | `https://streamerkit.fire-hive.com/api/my-roster` |
+| Authentication | Header Auth → `StreamerKit API Key` |
+| Response Format | `JSON` |
 
 **Used in**: Fetch My Roster node
 
@@ -63,11 +98,27 @@ as context; the optimizer will rank them properly in the next step.
 | `batting_slot` | On bench candidates: shows they're actually in the batting order |
 | `injury_status` | Surface to the notification — `DAY_TO_DAY` etc. provides context |
 
-**Headers**: `X-API-Key: <key>`
-
 ---
 
 ### 2. `GET /api/roster-optimizer`
+
+**Full URL**: `https://streamerkit.fire-hive.com/api/roster-optimizer?trend_games=10&min_gap=5.0`
+
+**n8n HTTP Request node settings**:
+
+| Field | Value |
+|---|---|
+| Method | `GET` |
+| URL | `https://streamerkit.fire-hive.com/api/roster-optimizer` |
+| Authentication | Header Auth → `StreamerKit API Key` |
+| Response Format | `JSON` |
+
+**Query parameters** (add in the n8n "Query Parameters" section):
+
+| Name | Value |
+|---|---|
+| `trend_games` | `10` |
+| `min_gap` | `5.0` |
 
 **Used in**: Score & Rank Replacements node
 
@@ -85,15 +136,6 @@ bench candidates identified from `/api/my-roster` and to surface the optimizer's
 
 **How to use it**: If a flagged-out starter appears as `sit.name` in any swap, the `start`
 player in that swap is the optimizer's ranked replacement. Present it as the top suggestion.
-
-**Query params**:
-
-| Param | Recommended value | Why |
-|---|---|---|
-| `trend_games` | `10` | Enough recency without noise |
-| `min_gap` | `5.0` | Lower than default to surface more options when a replacement is needed |
-
-**Headers**: `X-API-Key: <key>`
 
 ---
 
@@ -134,7 +176,5 @@ No replacement found:
 
 | Endpoint | Cache TTL | n8n implication |
 |---|---|---|
-| `/api/my-roster` | 2 min | Calls closer than 2 min return cached data; polling every 30 min is safe |
-| `/api/roster-optimizer` | 5 min | One call per workflow run is fine |
-
-All requests need `X-API-Key` header. Store the key as an n8n credential (HTTP Header Auth).
+| `https://streamerkit.fire-hive.com/api/my-roster` | 2 min | Polling every 30 min is well within the TTL window |
+| `https://streamerkit.fire-hive.com/api/roster-optimizer` | 5 min | One call per workflow run is fine |
