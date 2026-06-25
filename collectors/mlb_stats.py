@@ -5,8 +5,9 @@ from datetime import date
 import requests
 import statsapi
 
-from models.player import TrendSummary
+from models.player import LineupStatus, TrendSummary
 from utils.feed_logger import log_feed_fetch
+from utils.names import normalize_name
 
 CURRENT_YEAR = date.today().year
 _TEAM_ABBR_CACHE: dict[int, str] = {}
@@ -226,6 +227,91 @@ def get_pitcher_stats(name: str):
         })
 
     return season_record, last_ten_record, last_two
+
+
+def get_player_lineup_status(player_name: str, for_date: date | None = None) -> LineupStatus:
+    query_key = normalize_name(player_name)
+    date_str = (for_date or date.today()).strftime("%Y%m%d")
+    scoreboard_url = (
+        f"https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates={date_str}"
+    )
+
+    try:
+        with log_feed_fetch("mlb_stats", "get_player_lineup_status"):
+            resp = requests.get(scoreboard_url, timeout=10)
+            resp.raise_for_status()
+            data = resp.json()
+    except Exception:
+        return LineupStatus(player_name=player_name, in_lineup=False, status="no_game")
+
+    events = data.get("events", [])
+    if not events:
+        return LineupStatus(player_name=player_name, in_lineup=False, status="no_game")
+
+    any_boxscore_populated = False
+
+    for event in events:
+        event_id = event.get("id")
+        game_time = event.get("date")
+
+        summary_url = (
+            f"https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/summary?event={event_id}"
+        )
+        try:
+            summary_resp = requests.get(summary_url, timeout=10)
+            summary_resp.raise_for_status()
+            summary = summary_resp.json()
+        except Exception:
+            continue
+
+        players_sections = summary.get("boxscore", {}).get("players", [])
+        if not players_sections:
+            continue
+
+        for section in players_sections:
+            stats_list = section.get("statistics", [])
+            if stats_list and stats_list[0].get("athletes"):
+                any_boxscore_populated = True
+                break
+
+        for section in players_sections:
+            team_abbr = _team_abbreviation(section.get("team", {}))
+            stats_list = section.get("statistics", [])
+            if not stats_list:
+                continue
+            athletes = stats_list[0].get("athletes", [])
+
+            for athlete_entry in athletes:
+                athlete = athlete_entry.get("athlete", {})
+                display_name = athlete.get("displayName") or athlete.get("fullName", "")
+                if not display_name or normalize_name(display_name) != query_key:
+                    continue
+
+                opponent_abbr = next(
+                    (
+                        _team_abbreviation(other.get("team", {}))
+                        for other in players_sections
+                        if _team_abbreviation(other.get("team", {})) != team_abbr
+                    ),
+                    None,
+                )
+                starter = bool(athlete_entry.get("starter", False))
+                bat_order = athlete_entry.get("batOrder")
+                batting_slot = int(bat_order) if bat_order else None
+
+                return LineupStatus(
+                    player_name=display_name,
+                    in_lineup=starter,
+                    status="starting" if starter else "bench",
+                    batting_slot=batting_slot if starter else None,
+                    team=team_abbr,
+                    opponent=opponent_abbr,
+                    game_time=game_time,
+                )
+
+    if not any_boxscore_populated:
+        return LineupStatus(player_name=player_name, in_lineup=False, status="lineup_not_posted")
+    return LineupStatus(player_name=player_name, in_lineup=False, status="not_found")
 
 
 def get_todays_probable_starters(for_date: date | None = None) -> set[str]:

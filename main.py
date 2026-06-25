@@ -185,6 +185,7 @@ def _render_menu(weekly_line: str) -> str:
             _menu_line(" 4  Team Pitchers          Best for: staff health check"),
             _menu_line(" 6  Roster Optimizer       Best for: clear add/drop recommendations"),
             _menu_line(" 7  Pitcher Start Eval     Best for: start/sit confidence"),
+            _menu_line("10  Check Lineup           Best for: verify player is starting today"),
             _menu_line(""),
             _menu_line("[SYSTEM]"),
             _menu_line(" 8  Feed Health            Best for: source URLs, cache freshness, feed failures"),
@@ -254,6 +255,17 @@ def _run_feed_health() -> None:
     run()
 
 
+def _run_check_lineup() -> None:
+    from scripts.check_lineup import run
+    player = ask_text("Player name", default=None)
+    if not player:
+        print("  Player name is required.")
+        return
+    date_str = ask_text("Date (YYYY-MM-DD, leave blank for today)", default=None)
+    import types
+    run(types.SimpleNamespace(player=player, date=date_str))
+
+
 HANDLERS: dict[str, tuple[str, object]] = {
     "1": ("Streaming Pitchers", _run_streaming_pitchers),
     "2": ("Free Agent Hitters", _run_free_agent_hitters),
@@ -264,6 +276,7 @@ HANDLERS: dict[str, tuple[str, object]] = {
     "7": ("Pitcher Start Eval", _run_pitcher_start_eval),
     "8": ("Feed Health", _run_feed_health),
     "9": ("Exit", None),
+    "10": ("Check Lineup", _run_check_lineup),
 }
 
 
