@@ -22,7 +22,11 @@ interface RosterData {
 function StatusBadge({ slot }: { slot: RosterSlot }) {
   if (slot.in_lineup === null) return null
   if (slot.in_lineup === true)
-    return <span className="text-xs font-semibold text-green-400">▶ Starting</span>
+    return (
+      <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-green-900 text-green-300 text-xs font-bold shrink-0">
+        {slot.batting_slot ?? '▶'}
+      </span>
+    )
   if (slot.lineup_status === 'lineup_not_posted')
     return <span className="text-xs font-semibold text-yellow-400">? Not Posted</span>
   if (slot.lineup_status === 'no_game')
