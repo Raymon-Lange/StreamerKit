@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import DailyBrief from './components/DailyBrief'
+import LineupCard from './components/LineupCard'
 import FeedSourcesCard from './components/FeedSourcesCard'
 import Optimizer from './components/Optimizer'
 import Profile from './components/Profile'
@@ -51,6 +52,7 @@ export default function App() {
             <RecentDrops />
             <Optimizer />
             <WeeklyScores />
+            <LineupCard />
             <Profile />
           </div>
         ) : (

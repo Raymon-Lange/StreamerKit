@@ -13,7 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.auth import verify_api_key
-from app.routes import dashboard, drops, feed_status, health, lineup, optimizer, pitcher_starts, streamers, weekly_scores
+from app.routes import dashboard, drops, feed_status, health, lineup, my_roster, optimizer, pitcher_starts, streamers, weekly_scores
 from utils.cache_store import store as _cache
 
 _build_sha = os.getenv("BUILD_SHA", "dev")
@@ -74,6 +74,7 @@ app.include_router(pitcher_starts.router, prefix="/api", **_protected)
 app.include_router(lineup.router, prefix="/api", **_protected)
 app.include_router(weekly_scores.router, prefix="/api", **_protected)
 app.include_router(optimizer.router, prefix="/api", **_protected)
+app.include_router(my_roster.router, prefix="/api", **_protected)
 app.include_router(dashboard.router, prefix="/api", **_protected)
 
 _frontend = Path(__file__).resolve().parents[1] / "frontend" / "dist"

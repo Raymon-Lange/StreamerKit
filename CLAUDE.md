@@ -47,5 +47,5 @@ They are loaded through `python-dotenv` from `.env`.
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan
-at `specs/010-lineup-status-check/plan.md`.
+at `specs/011-lineup-bench-card/plan.md`.
 <!-- SPECKIT END -->

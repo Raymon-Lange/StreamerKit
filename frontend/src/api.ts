@@ -20,4 +20,5 @@ export const api = {
   weeklyScores: () => apiFetch('/api/weekly-scores?latest_scored=true'),
   optimizer: () => apiFetch('/api/roster-optimizer'),
   feedStatus: () => apiFetch('/api/feed-status'),
+  myRoster: () => apiFetch('/api/my-roster'),
 }
