@@ -13,10 +13,12 @@ This repository evaluates ESPN fantasy baseball rosters and waiver options by co
 
 Shared data types are in `models/player.py`:
 
-- `PlayerRecord`
-- `RankingEntry`
-- `TrendSummary`
-- `Recommendation`
+- `PlayerRecord` — normalized player with ESPN metadata and injury status
+- `RankingEntry` — a single ranking source result (rank, tier, article info)
+- `TrendSummary` — recent MLB stat window (AVG, OPS, HR, SB, RBI, Runs)
+- `Recommendation` — action label, reason string, and weighted score
+- `LineupSwap` — a recommended start/sit pair with score gap
+- `LineupStatus` — real-life batting lineup confirmation for a player
 
 All cross-source player joins should use `utils/names.py`.
 
@@ -105,6 +107,183 @@ All cross-source player joins should use `utils/names.py`.
 `scripts/show_ranking_page_sources.py`:
 
 Reads each ranking cache file and prints its source URL, fetch timestamp, and article date. Useful for verifying that cached rankings are current. Pass `--show-missing` to also flag cache files that are absent or unreadable.
+
+## Collectors
+
+| Collector | Source | Key functions |
+|---|---|---|
+| `collectors/espn.py` | ESPN private API (authenticated) | `build_context`, `get_roster_players`, `get_free_agent_hitters`, `get_free_agent_pitchers`, `get_all_roster_pitchers`, `is_hitter`, `is_pitcher` |
+| `collectors/mlb_stats.py` | ESPN public MLB scoreboard + MLB Stats API | `summarize_recent_hitting`, `get_pitcher_season_stats`, `get_pitcher_last_starts`, `get_player_lineup_status` |
+| `collectors/pitcherlist.py` | Pitcher List (scraped) | `scrape_sp_streamers`, `scrape_top_hitters`, `scrape_dynasty_hitters` |
+| `collectors/espn_dynasty.py` | ESPN dynasty rankings (scraped) | `scrape_espn_dynasty_top300` |
+| `collectors/espn_points.py` | ESPN points rankings (scraped) | `scrape_espn_points_top300` |
+| `collectors/espn_keeper_cost.py` | ESPN draft history | `get_keeper_cost_map` |
+| `collectors/espn_activity.py` | ESPN league activity feed | `get_recent_drops` |
+
+### `get_player_lineup_status(player_name, for_date=None) → LineupStatus`
+
+Checks whether a player is in their MLB team's starting batting lineup for a given date (defaults to today).
+
+1. Fetches today's MLB scoreboard from ESPN's public API to get all game IDs.
+2. For each game, fetches the boxscore summary and scans batting lineup sections.
+3. Matches the player by normalized name against each team's lineup.
+4. Returns a `LineupStatus` with:
+
+| Field | Type | Description |
+|---|---|---|
+| `player_name` | `str` | Input name |
+| `in_lineup` | `bool` | `True` if found in batting order |
+| `status` | `str` | `starting` · `bench` · `no_game` · `not_found` · `lineup_not_posted` |
+| `batting_slot` | `int \| None` | Order position (1–9) |
+| `team` | `str \| None` | MLB team abbreviation |
+| `opponent` | `str \| None` | Opponent abbreviation |
+| `game_time` | `str \| None` | ISO 8601 game time |
+
+Only meaningful for position players — pitchers always return `in_lineup=False` with status `not_found`.
+
+---
+
+## REST API
+
+All `/api/*` routes require `X-API-Key: <your key>` header. Responses are cached in `.cache/cache.db`.
+
+### `GET /health`
+
+No auth required.
+
+```json
+{ "status": "ok", "build": "dev" }
+```
+
+### `GET /api/streamers?tomorrow=false`
+
+SP streamers for today or tomorrow. Combines Pitcher List tiers, ESPN ownership, and probable starters.
+
+| Param | Default | Description |
+|---|---|---|
+| `tomorrow` | `false` | Return tomorrow's starters instead |
+
+Response: `{ "rows": [ { "name", "mlb_team", "tier", "streamer_rank", "percent_owned", "injury_status", "recommendation", "season_record", "last_ten_record", "last_two_starts", "opponent_team", "opponent_score" } ] }`
+
+Cache TTL: 5 minutes
+
+### `GET /api/recent-drops?days=2&top=10`
+
+Dropped players from the last N days with waiver pickup recommendations.
+
+| Param | Default | Description |
+|---|---|---|
+| `days` | `2` | Lookback window |
+| `top` | `10` | Max results |
+
+Response: `{ "rows": [ { "name", "mlb_team", "kind" ("H"/"P"), "dropped_by", "injury_status", "recommendation" } ] }`
+
+Cache TTL: 5 minutes
+
+### `GET /api/pitcher-starts?tomorrow=false`
+
+Your roster pitchers with probable starts today or tomorrow and streamer tier mapping.
+
+| Param | Default | Description |
+|---|---|---|
+| `tomorrow` | `false` | Check tomorrow's schedule |
+
+Cache TTL: 5 minutes
+
+### `GET /api/roster-optimizer?trend_games=10&min_gap=10.0`
+
+Identifies bench hitters who should be starting over active roster slots based on recent trend scoring.
+
+| Param | Default | Description |
+|---|---|---|
+| `trend_games` | `10` | Recent game window for trend stats |
+| `min_gap` | `10.0` | Minimum score gap to flag a swap |
+
+Response: `{ "team", "roster_hitter_count", "active_count", "bench_count", "swap_count", "swaps": [ { "start", "sit", "slot", "score_gap" } ] }`
+
+Cache TTL: 5 minutes
+
+### `GET /api/lineup?player=<name>&date=<YYYY-MM-DD>`
+
+Real-life batting lineup status for a single player via ESPN's public MLB scoreboard.
+
+| Param | Required | Description |
+|---|---|---|
+| `player` | Yes | Player name (partial match supported via normalization) |
+| `date` | No | Date to check (defaults to today) |
+
+```json
+{
+  "player_name": "Jose Altuve",
+  "in_lineup": true,
+  "status": "starting",
+  "batting_slot": 1,
+  "team": "HOU",
+  "opponent": "TOR",
+  "game_time": "2026-06-24T23:07Z"
+}
+```
+
+Status values: `starting` · `bench` · `no_game` · `not_found` · `lineup_not_posted`
+
+Cache TTL: 2 minutes
+
+### `GET /api/my-roster`
+
+Full roster card for your team — all players with their current fantasy lineup slot and real-life batting lineup status. Hitter statuses are fetched in parallel; pitchers return `in_lineup: null`.
+
+```json
+{
+  "generated_on": "2026-06-24",
+  "team": "Raymon's Rowdy Team",
+  "starters": [
+    {
+      "name": "Jose Altuve",
+      "mlb_team": "Hou",
+      "lineup_slot": "OF",
+      "injury_status": null,
+      "in_lineup": true,
+      "lineup_status": "starting",
+      "batting_slot": 1
+    }
+  ],
+  "bench": [
+    {
+      "name": "Jarren Duran",
+      "mlb_team": "Bos",
+      "lineup_slot": "BE",
+      "injury_status": null,
+      "in_lineup": false,
+      "lineup_status": "not_found",
+      "batting_slot": null
+    }
+  ]
+}
+```
+
+`lineup_slot` reflects the fantasy roster slot (e.g. `C`, `1B`, `OF`, `SP`, `RP`, `BE`, `IL`). Players in `BE`/`IL`/`IL10`/`IL15`/`IL60`/`NA` slots appear in `bench`; all others in `starters`.
+
+Cache TTL: 2 minutes
+
+### `GET /api/weekly-scores?latest_scored=false`
+
+League scoreboard for the current matchup period.
+
+| Param | Default | Description |
+|---|---|---|
+| `latest_scored` | `false` | Return the most recently completed period instead |
+
+### `GET /api/dashboard`
+
+Single-request summary for the daily brief card: top streamer, top waiver drop, pitcher starts, and weekly score snapshot.
+
+Cache TTL: 5 minutes
+
+### `GET /api/feed-status`
+
+Health and freshness status of all external data feeds (Pitcher List, ESPN rankings, MLB Stats API).
+
+---
 
 ## Hitter scoring weights
 
