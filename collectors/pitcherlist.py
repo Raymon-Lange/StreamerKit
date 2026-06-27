@@ -406,6 +406,8 @@ def get_latest_streamer_url() -> str:
         for anchor in soup.find_all("a", href=True):
             href = anchor["href"]
             if "/starting-pitcher-streamer-ranks" in href:
+                if href.startswith("/"):
+                    href = "https://pitcherlist.com" + href
                 return href
         raise ValueError("Could not find latest SP Streamers post.")
 
