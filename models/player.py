@@ -72,3 +72,16 @@ class LineupStatus:
     team: str | None = None
     opponent: str | None = None
     game_time: str | None = None
+
+
+@dataclass(slots=True)
+class LineupMove:
+    player_id: int
+    from_slot_id: int
+    to_slot_id: int
+
+
+@dataclass(slots=True)
+class SwapResult:
+    success: bool
+    message: str

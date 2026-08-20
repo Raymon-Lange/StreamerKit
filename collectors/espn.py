@@ -3,7 +3,9 @@ from __future__ import annotations
 import sys
 from dataclasses import dataclass
 
-from models.player import PlayerRecord
+import requests
+
+from models.player import LineupMove, PlayerRecord
 from utils.config import AppConfig
 from utils.feed_logger import log_feed_fetch
 from utils.names import normalize_name
@@ -11,6 +13,19 @@ from utils.names import normalize_name
 HITTER_POSITIONS = {"C", "1B", "2B", "3B", "SS", "LF", "CF", "RF", "OF", "DH", "UTIL"}
 PITCHER_POSITIONS = {"P", "SP", "RP"}
 DEFAULT_HITTER_QUERIES = ["C", "1B", "2B", "3B", "SS", "OF", "DH"]
+
+# Undocumented ESPN endpoint, reverse-engineered from a captured browser request
+# (docs/fantasy.espn.com.har) doing a real lineup swap. No official support or
+# stability guarantee — ESPN can change this without notice.
+_WRITE_ENDPOINT = (
+    "https://lm-api-writes.fantasy.espn.com/apis/v3/games/flb"
+    "/seasons/{year}/segments/0/leagues/{league_id}/transactions/"
+)
+_PLATFORM_VERSION = "92ddde53921921ea7953eb96dd0de450b18bcb8a"
+
+
+class EspnWriteError(Exception):
+    """Raised when ESPN rejects, or we cannot reach, a lineup-write request."""
 
 
 @dataclass(slots=True)
@@ -161,3 +176,61 @@ def get_all_roster_pitchers(context: EspnContext) -> list[PlayerRecord]:
                 deduped[key] = player
 
     return [player_to_record(player, source="espn_roster") for player in deduped.values()]
+
+
+def swap_lineup_slots(context: EspnContext, team_id: int, moves: list[LineupMove]) -> dict:
+    """POST a FUTURE_ROSTER LINEUP transaction to ESPN's write endpoint.
+
+    ESPN rejects FUTURE_ROSTER transactions against the currently-open scoring
+    period (HTTP 409, "Transaction type can only be executed in future scoring
+    periods") — confirmed by testing against a live roster. This type only ever
+    applies to the *next* day's lineup, so we target scoringPeriodId + 1.
+
+    executionType is EXECUTE — this mutates the user's live roster for tomorrow.
+    Raises EspnWriteError on any network failure, non-200 response, or a response
+    whose status is not "EXECUTED".
+    """
+    cfg = context.config
+    url = _WRITE_ENDPOINT.format(year=cfg.year, league_id=cfg.league_id)
+    payload = {
+        "isLeagueManager": False,
+        "teamId": team_id,
+        "type": "FUTURE_ROSTER",
+        "memberId": cfg.espn_swid,
+        "scoringPeriodId": context.league.scoringPeriodId + 1,
+        "executionType": "EXECUTE",
+        "items": [
+            {
+                "playerId": move.player_id,
+                "type": "LINEUP",
+                "fromLineupSlotId": move.from_slot_id,
+                "toLineupSlotId": move.to_slot_id,
+            }
+            for move in moves
+        ],
+    }
+
+    try:
+        response = requests.post(
+            url,
+            params={"platformVersion": _PLATFORM_VERSION},
+            json=payload,
+            cookies={"espn_s2": cfg.espn_s2, "SWID": cfg.espn_swid},
+            headers={
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+                "X-Fantasy-Platform": "espn-fantasy-web",
+                "X-Fantasy-Source": "kona",
+            },
+            timeout=15,
+        )
+    except requests.RequestException as exc:
+        raise EspnWriteError(f"Could not reach ESPN: {exc}") from exc
+
+    if response.status_code != 200:
+        raise EspnWriteError(f"ESPN rejected the swap (HTTP {response.status_code}): {response.text[:300]}")
+
+    data = response.json()
+    if data.get("status") != "EXECUTED":
+        raise EspnWriteError(f"ESPN did not execute the swap (status={data.get('status')})")
+    return data

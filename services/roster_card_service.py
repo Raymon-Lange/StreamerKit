@@ -16,6 +16,7 @@ def _lineup_slot(player_record) -> str:
 
 def _serialize_player(player, slot: str, status) -> dict:
     return {
+        "player_id": player.external_id,
         "name": player.name,
         "mlb_team": player.mlb_team,
         "lineup_slot": slot,

@@ -60,8 +60,8 @@ if _cors_origins:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=_cors_origins,
-        allow_methods=["GET"],
-        allow_headers=["X-API-Key"],
+        allow_methods=["GET", "POST"],
+        allow_headers=["X-API-Key", "Content-Type"],
     )
 
 app.include_router(health.router)
