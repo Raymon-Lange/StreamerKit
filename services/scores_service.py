@@ -3,6 +3,8 @@ from __future__ import annotations
 import statistics
 from datetime import date
 
+from espn_api.baseball.matchup import Matchup
+
 from collectors.espn import build_context
 from utils.config import AppConfig
 
@@ -22,10 +24,28 @@ def _matchup_score(matchup, side: str) -> float:
 
 
 def _scoreboard_for_period(league, period: int):
-    try:
-        return league.scoreboard(matchupPeriod=period)
-    except TypeError:
-        return league.scoreboard(period=period)
+    """Fetch matchups for `period`, skipping bye weeks.
+
+    Reimplements league.scoreboard() rather than calling it directly: ESPN
+    omits the 'away' side entirely for a bye-week matchup, and the espn_api
+    library's Matchup parser assumes both sides are always present, raising
+    KeyError('away') for the whole period. Filtering those entries out here
+    keeps the real matchups in a period usable even when one team has a bye.
+    """
+    data = league.espn_request.league_get(params={"view": "mMatchup"})
+    schedule = data["schedule"]
+    matchups = [
+        Matchup(entry)
+        for entry in schedule
+        if entry.get("matchupPeriodId") == period and "home" in entry and "away" in entry
+    ]
+    for team in league.teams:
+        for matchup in matchups:
+            if matchup.home_team == team.team_id:
+                matchup.home_team = team
+            elif matchup.away_team == team.team_id:
+                matchup.away_team = team
+    return matchups
 
 
 def _resolve_period(league, requested_period: int | None, latest_scored: bool) -> int:
